@@ -1,13 +1,24 @@
 #define CL_TARGET_OPENCL_VERSION 220
-#include <CL/cl.h>
+#include <CL/cl_ext.h>
 #include <stdlib.h>
 #include <stdio.h>
+#include <unistd.h>
+#include <iomanip>
 #include <iostream>
 #include <ctime>
 #include <chrono>
 
+
 using Clock = std::chrono::high_resolution_clock;
 
+
+//----------------------------------------------------------------------------------------------------------------------
+// Macros
+//----------------------------------------------------------------------------------------------------------------------
+
+#define KB 	1024u
+#define MB 	( 1024u * KB)
+#define GB 	( 1024u * MB)
 
 #define HTYPE float
 #define MAX_SOURCE_SIZE 100000
@@ -18,10 +29,58 @@ using Clock = std::chrono::high_resolution_clock;
 #define SKIP_ITEMS_NUM 256*1024 // 256K
 
 #define N MAX_VECTOR_SIZE
-size_t skip_items = SKIP_ITEMS_NUM;
-int nKernels = KERNEL_NUM;
 
-void PrintBuildLog(cl_program vadd_kernel_program, cl_device_id device_id) {
+#define dprintf(level, ...) \
+	if ( level <= debug_level ) { \
+		printf(__VA_ARGS__); \
+	}
+
+#define RED 	"\033[1;31m"
+#define GREEN   "\033[1;32m"
+#define YELLOW  "\033[1;33m"
+#define BLUE    "\033[1;34m"
+#define RESET   "\033[0m"
+
+#define TIMER_START(suffix) 										\
+	Clock::time_point t_start##suffix = Clock::now();
+
+#define TIMER_STOP(suffix, name, ...) 								{ 		\
+		timeDisplay(name, timeElapsed(t_start##suffix), ##__VA_ARGS__); 	\
+		t_start##suffix = Clock::now();										\
+	}
+
+#define TIMER_RESET(suffix) \
+	t_start##suffix = time_now();
+
+
+#define PRIO_TO_NAME()   ( highPrio ? RED : GREEN ) << ( highPrio ? "High Priority " : "Low Priority ") << RESET
+
+//----------------------------------------------------------------------------------------------------------------------
+// Local data
+//----------------------------------------------------------------------------------------------------------------------
+
+static size_t skip_items = SKIP_ITEMS_NUM;
+static int nKernels = KERNEL_NUM;
+static bool highPrio = true;
+static int debug_level = 1;
+
+//----------------------------------------------------------------------------------------------------------------------
+// Local functions
+//----------------------------------------------------------------------------------------------------------------------
+static float timeElapsed(Clock::time_point t_start) {
+	Clock::time_point t_stop = Clock::now();
+	std::chrono::duration<double, std::milli> diff = duration_cast<std::chrono::duration<double>>(t_stop - t_start);
+	return diff.count();
+}
+
+static void timeDisplay(std::string name, float duration, uint32_t level=1) {
+	if (level <= debug_level) {
+		std::cout<<"\t"<<PRIO_TO_NAME()<< " "<< name<<" : \t"<<std::fixed<<std::setprecision(1)<<BLUE<<duration<<RESET<<" ms" << std::endl;	
+	}
+}
+
+
+static void PrintBuildLog(cl_program vadd_kernel_program, cl_device_id device_id) {
 	// Determine the size of the log
 	size_t log_size;
 	clGetProgramBuildInfo(vadd_kernel_program, device_id, CL_PROGRAM_BUILD_LOG, 0, NULL, &log_size);
@@ -34,21 +93,24 @@ void PrintBuildLog(cl_program vadd_kernel_program, cl_device_id device_id) {
 
 	// Print the log
 	printf("%s\n", log);
-
-	free(log);
+    free(log);
 }
 
-void PrintKernelInfo(cl_kernel kernel, cl_device_id device_id)
-{
-	size_t kernel_size = 0;
-	//clGetKernelWorkGroupInfo(kernel, device_id, CL_KERNEL_WORK_GROUP_SIZE, sizeof(kernel_size), &kernel_size, NULL);
-	//printf("\t  CL_KERNEL_WORK_GROUP_SIZE:\t\t%lu items\n", (unsigned int)(kernel_size));
+static std::string GetDeviceName(cl_device_id device) {
+	char device_string[1024];
 
-	//clGetKernelWorkGroupInfo(kernel, device_id, CL_KERNEL_GLOBAL_WORK_SIZE, sizeof(kernel_size), &kernel_size, NULL);
-	//printf("\t  CL_KERNEL_GLOBAL_WORK_SIZE:\t\t%lu items\n", (unsigned int)(kernel_size));
+	// CL_DEVICE_NAME
+	clGetDeviceInfo(device, CL_DEVICE_NAME, sizeof(device_string), &device_string, NULL);
+
+	return device_string;
 }
 
-void PrintDeviceInfo(cl_device_id device) {
+static void PrintDeviceInfo(cl_device_id device) {
+
+	if ( debug_level <= 2 ) {
+		return;
+	}
+
 	char device_string[1024];
 
 	std::cout << "\tPrinting devices Information\n";
@@ -162,17 +224,11 @@ void PrintDeviceInfo(cl_device_id device) {
 	size_t szMaxDims[5];
 	printf("\n\t  CL_DEVICE_IMAGE <dim>");
 	clGetDeviceInfo(device, CL_DEVICE_IMAGE2D_MAX_WIDTH, sizeof(size_t), &szMaxDims[0], NULL);
-	//printf("\t\t\t2D_MAX_WIDTH\t %u\n", szMaxDims[0]);
 	clGetDeviceInfo(device, CL_DEVICE_IMAGE2D_MAX_HEIGHT, sizeof(size_t), &szMaxDims[1], NULL);
-	//printf("\t\t\t\t\t\t2D_MAX_HEIGHT\t %u\n", szMaxDims[1]);
 	clGetDeviceInfo(device, CL_DEVICE_IMAGE3D_MAX_WIDTH, sizeof(size_t), &szMaxDims[2], NULL);
-	//printf("\t\t\t\t\t\t3D_MAX_WIDTH\t %u\n", szMaxDims[2]);
 	clGetDeviceInfo(device, CL_DEVICE_IMAGE3D_MAX_HEIGHT, sizeof(size_t), &szMaxDims[3], NULL);
-	//printf("\t\t\t\t\t\t3D_MAX_HEIGHT\t %u\n", szMaxDims[3]);
 	clGetDeviceInfo(device, CL_DEVICE_IMAGE3D_MAX_DEPTH, sizeof(size_t), &szMaxDims[4], NULL);
-	//printf("\t\t\t\t\t\t3D_MAX_DEPTH\t %u\n", szMaxDims[4]);
 
-	// CL_DEVICE_PREFERRED_VECTOR_WIDTH_<type>
 	printf("\t  CL_DEVICE_PREFERRED_VECTOR_WIDTH_<t>\t");
 	cl_uint vec_width[6];
 	clGetDeviceInfo(device, CL_DEVICE_PREFERRED_VECTOR_WIDTH_CHAR, sizeof(cl_uint), &vec_width[0], NULL);
@@ -181,8 +237,7 @@ void PrintDeviceInfo(cl_device_id device) {
 	clGetDeviceInfo(device, CL_DEVICE_PREFERRED_VECTOR_WIDTH_LONG, sizeof(cl_uint), &vec_width[3], NULL);
 	clGetDeviceInfo(device, CL_DEVICE_PREFERRED_VECTOR_WIDTH_FLOAT, sizeof(cl_uint), &vec_width[4], NULL);
 	clGetDeviceInfo(device, CL_DEVICE_PREFERRED_VECTOR_WIDTH_DOUBLE, sizeof(cl_uint), &vec_width[5], NULL);
-	//printf("CHAR %u, SHORT %u, INT %u, FLOAT %u, DOUBLE %u\n\n\n",
-	//	vec_width[0], vec_width[1], vec_width[2], vec_width[3], vec_width[4]);
+	
 }
 
 void printf_exit(char* errmsg, cl_int err)
@@ -212,21 +267,14 @@ cl_int GetFirstAvailableDevice(cl_device_type type_device, cl_device_id& device_
 		std::cout << "failed to query platforms. Error: " << std::to_string(err) << std::endl;
 		exit(1);
 	}
-	else {
-		std::cout << "Platform OK " << numPlatforms <<  "\n";
-	}
-
+	
 	/*obtain list of devices available on platform*/
 	for (i = 0; i < numPlatforms; i++) {
 		numDevices = 0;
 		curPlatformID = allPlatformID[i];
 		clGetDeviceIDs(curPlatformID, type_device, 0, NULL, &numDevices);
-		std::cout << "\t" << std::to_string(numDevices) << " GPU devices found on platform  " << numDevices  << std::endl;
 		accDevices = (cl_device_id *)malloc(sizeof(cl_device_id)*numDevices);
 
-		//err = clGetDeviceIDs(curPlatformID, type_device, numDevices, &accDevices, NULL);
-		//err = clGetDeviceIDs(curPlatformID, type_device, numDevices, accDevices, NULL);
-		//err = clGetDeviceIDs(firstPlatformID, CL_DEVICE_TYPE_GPU, 1, &accDevices[dg], NULL);
 		err = clGetDeviceIDs(curPlatformID, CL_DEVICE_TYPE_GPU, numDevices, accDevices, NULL);
 		if (err == CL_SUCCESS) {
 			//for (int dg = 0; dg < numDevices; dg++)
@@ -237,11 +285,8 @@ cl_int GetFirstAvailableDevice(cl_device_type type_device, cl_device_id& device_
 			}
 		 	std::cout << "\t continue GPU... \n" <<std::endl; 
 		}
-		else {
-			printf("\t\tError:Failure in clGetDeviceIds, error code = %d\n\t\t, Or,This platform cannot interact with the GPUs.Check for the drivers\n", err);
-		}
 	}
-	if (bFoundGPU == 0) {
+	if ( bFoundGPU == 0) {
 		std::cout << "No GPU found. Exit\n";
 		err = 1;
 	}
@@ -251,15 +296,25 @@ cl_int GetFirstAvailableDevice(cl_device_type type_device, cl_device_id& device_
 
 int main(int argc, char* argv[])
 {
-	// get input parameter for number of kernels to run async
-	if (argc > 1) {
-		nKernels = atoi(argv[1]);
-		if (nKernels > MAX_SYNC_KERNELS)
-			nKernels = MAX_SYNC_KERNELS;
-	}
+	int c;
+    while ((c = getopt(argc, argv, "n:l")) != -1) {
+
+    	switch (c) {
+            case 'n':
+                nKernels = atoi(optarg);
+            	break;
+            case 'l':
+                highPrio = false;
+            	break;
+            default:           
+                std::cout << "Got unknown parse returns: " << c << std::endl; 
+                exit(0);   
+    	}
+    }
+
+	nKernels = std::min(nKernels,MAX_SYNC_KERNELS);
 
 	cl_int err;
-	skip_items = SKIP_ITEMS_NUM;
 
 	// Set up a GPU device if available, exit if not GPU
 	cl_device_id device_id;
@@ -269,83 +324,83 @@ int main(int argc, char* argv[])
 		return -1;
 	}
 
-	//PrintDeviceInfo(device_id);
+	const size_t buffSize = 512 * MB;
+	size_t maxSources =  (highPrio ? 14: 57);
 
-	cl_context context = clCreateContext(NULL, 1, &device_id, NULL, NULL, &err);
+	std::cout << "\n----------------------------------------------------------------------------" << std::endl;
+	std::cout << "\tLaunching " << PRIO_TO_NAME() << "application "  << std::endl;
+	std::cout << "\t  Device Name :\t" << GetDeviceName(device_id) << std::endl;
+	std::cout << "\t  Nb kernels  :\t" << nKernels << std::endl;
+	std::cout << "\t  Pid         :\t" << getpid() << std::endl;
+	std::cout << "\t  Nb buffers  :\t" << maxSources << " (" << buffSize/MB << " MB)" << std::endl;
+	std::cout << "----------------------------------------------------------------------------" << std::endl;
+
+	skip_items = SKIP_ITEMS_NUM;
+
+	
+
+	PrintDeviceInfo(device_id);
+    
+    cl_context context = clCreateContext(NULL, 1, &device_id, NULL, NULL, &err);
 	if (err != CL_SUCCESS) {
 		std::cout << "failed to init context. Error: " << std::to_string(err) << std::endl;
 		return -1;
 	}
 
-	//cl_command_queue_properties profilingQueueProperties =  CL_QUEUE_OUT_OF_ORDER_EXEC_MODE_ENABLE | CL_QUEUE_PROFILING_ENABLE | CL_QUEUE_PRIORITY_LOW_KHR;
-	//cl_command_queue_properties profilingQueueProperties =  (CL_QUEUE_OUT_OF_ORDER_EXEC_MODE_ENABLE | CL_QUEUE_PROFILING_ENABLE);
-	cl_command_queue q = clCreateCommandQueue(context, device_id, CL_QUEUE_OUT_OF_ORDER_EXEC_MODE_ENABLE | CL_QUEUE_PROFILING_ENABLE, &err);
-	//cl_command_queue q = clCreateCommandQueueWithProperties(context, device_id, &profilingQueueProperties, &err);
+	cl_command_queue q;
+
+	if (highPrio) {
+		q = clCreateCommandQueue(context, device_id, CL_QUEUE_OUT_OF_ORDER_EXEC_MODE_ENABLE | CL_QUEUE_PROFILING_ENABLE, &err);
+	}
+	else {
+	 	cl_command_queue_properties profilingQueueProperties[] = 
+	 		{ CL_QUEUE_PROPERTIES, CL_QUEUE_PROFILING_ENABLE, CL_QUEUE_PRIORITY_KHR, CL_QUEUE_PRIORITY_LOW_KHR, 0 };
+	 	q = clCreateCommandQueueWithProperties(context, device_id, profilingQueueProperties, &err);
+	 }
+
 	if (err != CL_SUCCESS) {
 		std::cout << "failed to init queue. Error: " << std::to_string(err) << std::endl;
 		return -1;
 	}
 
-/// main body
-	constexpr size_t kiloByte = 1024u;
-	constexpr size_t megaByte = 1024u * kiloByte;
-	constexpr size_t gigaByte = 1024u * megaByte;
-
-	const size_t buffSize = 512 * megaByte;
-	const size_t maxSources = 24 ;//6*16;
-        size_t sourcesCreated = 0;
+	/// main body
+	
+	size_t sourcesCreated = 0;
 	const cl_mem_flags memFlags = CL_MEM_READ_WRITE;
 
-	std::cout << "\nHIGH PRIOR init - buffs: " << std::to_string(maxSources) << std::endl;
+	cl_mem sources[maxSources];
+	for(size_t i = 0; i < maxSources ; i++) {
+		sources[i] = 0;
+	}
 
-	cl_mem sources[maxSources] = {0};
 	float* inBuff = new float[buffSize/sizeof(float)]();
 	for(size_t j = 0; j < buffSize/sizeof(float); j++) 	{
 		inBuff[j] = 1.0f;
 	}
 
-        Clock::time_point startTime = Clock::now();
+    TIMER_START(creationTime);
 
-
-	for(size_t i = 0; i < maxSources ; i++)
-	{
+	for(size_t i = 0; i < maxSources ; i++) {
 		//sources[i] = clCreateBuffer(context, memFlags, buffSize, nullptr, &err);
 		sources[i] = clCreateBuffer(context, memFlags | CL_MEM_COPY_HOST_PTR, buffSize, inBuff, &err);
 		if (err != CL_SUCCESS) {
 			std::cout << "failed to create buff: " << std::to_string(i) <<  " Error: " << std::to_string(err) << std::endl;
 			break;
 		}
-#if 0
-		float *pBufferBase = (float *)clEnqueueMapBuffer(q, sources[i], CL_TRUE, CL_MAP_WRITE, 0, buffSize, 0, NULL, NULL, &err);
-		if (err != CL_SUCCESS) {
-			std::cout << "failed to map buff: " << std::to_string(i) <<  " Error: " << std::to_string(err) << std::endl;
-			break;
-		}
 
-		//std::copy(inBuff, inBuff + buffSize/sizeof(float), pBufferBase);
-
-		err = clEnqueueUnmapMemObject(q, sources[i], pBufferBase, 0, NULL, NULL);
-		if (err != CL_SUCCESS) {
-			std::cout << "failed to unmap buff: " << std::to_string(i) <<  " Error: " << std::to_string(err) << std::endl;
-			break;
-		}
-#endif// // no buff Map/Unmap
 		err = clFinish(q);
 		if (err != CL_SUCCESS) {
 			std::cout << "failed to finish unmap buff: " << std::to_string(i) <<  " Error: " << std::to_string(err) << std::endl;
 			break;
 		}
-  		sourcesCreated+=1;
-
+		sourcesCreated+=1;
 	}
 
-        Clock::time_point endTime =  Clock::now();
+    TIMER_STOP(creationTime, "creation time" );
 
-        std::chrono::duration<double> diffTime = std::chrono::duration_cast<std::chrono::duration<double>>(endTime - startTime);
-        double microsecondTime = diffTime.count() * 1000.0;
-        std::cout << "Create Time HIGH:  " << std::to_string(microsecondTime) << std::endl ;
+    
+    delete[] inBuff;
 
-	delete[] inBuff;
 
 	cl_kernel kernel;
 	{
@@ -385,63 +440,61 @@ int main(int argc, char* argv[])
 
 	size_t gws = buffSize/sizeof(float);
 
-	if(err == CL_SUCCESS)
-	{
-		std::cout << "### HIGH PRIOR EXEC ###\n";
+	if(err == CL_SUCCESS) {
+		std::cout << "\t" <<PRIO_TO_NAME() << YELLOW << "started" << RESET << std::endl;
 		size_t oLoop = 0;
-		const size_t maxLoops = 48*1;
+		const size_t maxLoops = 48 * (highPrio ? 1 : 6); 
 
 		while( oLoop++ < maxLoops ) {
+ 
+			for(size_t iter = 0; iter < sourcesCreated;) {
+				cl_event evt;
+				cl_ulong enqstart = 0;
+				cl_ulong enqend = 0;
 
-                        for(size_t iter = 0; iter < sourcesCreated;) {
-                                cl_event evt;
-                                cl_ulong enqstart = 0;
-                                cl_ulong enqend = 0;
+				err |= clSetKernelArg(kernel, 0, sizeof(sources[iter + 0]), &sources[iter + 0]);
+				err |= clSetKernelArg(kernel, 1, sizeof(sources[iter + 1]), &sources[iter + 1] );
+				err |= clSetKernelArg(kernel, 2, sizeof(sources[iter + 2]), &sources[iter + 2] );
 
-                                err |= clSetKernelArg(kernel, 0, sizeof(sources[iter + 0]), &sources[iter + 0]);
-                                err |= clSetKernelArg(kernel, 1, sizeof(sources[iter + 1]), &sources[iter + 1] );
-                                err |= clSetKernelArg(kernel, 2, sizeof(sources[iter + 2]), &sources[iter + 2] );
-                                //err |= clEnqueueNDRangeKernel(q, kernel, 1, nullptr, &gws, NULL, 0, nullptr, nullptr);
-                                //err |= clFinish(q);
-                                err |= clEnqueueNDRangeKernel(q, kernel, 1, nullptr, &gws, NULL, 0, nullptr, &evt);
-                                err |= clWaitForEvents(1, &evt);
+				err |= clEnqueueNDRangeKernel(q, kernel, 1, nullptr, &gws, NULL, 0, nullptr, &evt);
+				err |= clWaitForEvents(1, &evt);
 
-                                if (err != CL_SUCCESS)
-                                {
-                                        std::cout << "Exec Error: " << std::to_string(err) << std::endl;
-                                }
-                                err |= clGetEventProfilingInfo(evt, CL_PROFILING_COMMAND_START, sizeof(cl_ulong), &enqstart, NULL);
-                                err |= clGetEventProfilingInfo(evt, CL_PROFILING_COMMAND_END, sizeof(cl_ulong), &enqend, NULL);
-                                if (err != CL_SUCCESS)
-                                {
-                                        std::cout << "Exec Error: " << std::to_string(err) << std::endl;
-                                }
+				if (err != CL_SUCCESS) {
+					std::cout << "Exec Error: " << std::to_string(err) << std::endl;
+				}
+
+				err |= clGetEventProfilingInfo(evt, CL_PROFILING_COMMAND_START, sizeof(cl_ulong), &enqstart, NULL);
+				err |= clGetEventProfilingInfo(evt, CL_PROFILING_COMMAND_END, sizeof(cl_ulong), &enqend, NULL);
+		
+				if (err != CL_SUCCESS) {
+					std::cout << "Exec Error: " << std::to_string(err) << std::endl;
+				}
+
 				float cmdQEnQTime = float((cl_double)(enqend - enqstart) * (cl_double)(1e-09));
-				std::cout << "### HIGH PRIOR EXEC ###  " << std::to_string(iter/3) << " time " << std::to_string(cmdQEnQTime) << std::endl ;
+				std::cout << "\t\t" << PRIO_TO_NAME() << std::to_string(iter/3) << " time " << std::to_string(cmdQEnQTime) << std::endl ;
 				clReleaseEvent(evt);
 
 				//iterator
 				iter +=3;
 			}
-			std::cout << "HIGH PRIOR n " << std::to_string(oLoop) << std::endl ;
+		//	std::cout << "\n" << std::to_string(oLoop) << std::endl ;
 		}
 	}
 
-	std::cout << " ### HIGH PRIOR END Loop\n";
 
-        for(size_t i = 0; i < sourcesCreated ; i++)
-        {
-                if(sources[i] != 0)
-                {
-                        clReleaseMemObject(sources[i]);
-                }
-                else { std::cout << "\t " << std::to_string(i) <<" Empty\n" ;}
-        }
+	//cleanup
+	for(size_t i = 0; i < sourcesCreated ; i++) {
+		if(sources[i] != 0) {
+			clReleaseMemObject(sources[i]);
+		}
+		else { std::cout << "\t " << std::to_string(i) <<" Empty\n" ;}
+	}
 
 	clReleaseCommandQueue(q);
 	clReleaseContext(context);
 
-	std::cout << "\n###############\n HIGH PRIOR QUIT \n###############\n";
+	std::cout << "\t"<< PRIO_TO_NAME() << YELLOW << "ended" << RESET << std::endl;
+
 
 	return 0;
 }
