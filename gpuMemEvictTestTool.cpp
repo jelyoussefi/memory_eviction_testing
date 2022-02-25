@@ -337,7 +337,6 @@ int main(int argc, char* argv[])
 
 	skip_items = SKIP_ITEMS_NUM;
 
-	
 
 	PrintDeviceInfo(device_id);
     
@@ -471,13 +470,17 @@ int main(int argc, char* argv[])
 				}
 
 				float cmdQEnQTime = float((cl_double)(enqend - enqstart) * (cl_double)(1e-09));
-				std::cout << "\t\t" << PRIO_TO_NAME() << std::to_string(iter/3) << " time " << std::to_string(cmdQEnQTime) << std::endl ;
+				if ( debug_level >= 2 ) {
+					std::cout << "\t\t" << PRIO_TO_NAME() << std::to_string(iter/3) << " time " << std::to_string(cmdQEnQTime) << std::endl ;
+				}
 				clReleaseEvent(evt);
 
 				//iterator
 				iter +=3;
 			}
-		//	std::cout << "\n" << std::to_string(oLoop) << std::endl ;
+			if ( debug_level >= 1 ) {
+				std::cout << "\t\t" << PRIO_TO_NAME() << "Loop : " << std::to_string(oLoop) << std::endl ;
+			}
 		}
 	}
 

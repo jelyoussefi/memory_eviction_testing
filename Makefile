@@ -9,35 +9,27 @@ ONEAPI_ROOT ?= /opt/intel/oneapi
 export TERM=xterm
 
 CXX_COMPILER=dpcpp
-CXXFLAGS=
+CXXFLAGS=-Wno-c++20-extensions -Wno-deprecated-declarations
 LDFLAGS=-lOpenCL
 #----------------------------------------------------------------------------------------------------------------------
 # Targets
 #----------------------------------------------------------------------------------------------------------------------
 default: run 
-.PHONY: highPrior lowPrior
+.PHONY: gpuMemEvictTestTool
 
-
-highPrior:
-	@$(call msg,Building highPrior  ...)
-	@bash -c 'source ${ONEAPI_ROOT}/setvars.sh --force 2> /dev/null && \
+	
+gpuMemEvictTestTool:
+	@$(call msg,Building gpuMemEvictTestTool application  ...)
+	@bash -c 'source ${ONEAPI_ROOT}/setvars.sh --force &> /dev/null && \
 		$(CXX_COMPILER) $(CXXFLAGS) $@.cpp -o $@ $(LDFLAGS)'
 
-lowPrior:
-	@$(call msg,Building lowPrior  ...)
-	@bash -c 'source ${ONEAPI_ROOT}/setvars.sh --force 2> /dev/null && \
-		$(CXX_COMPILER) $(CXXFLAGS) $@.cpp -o $@ $(LDFLAGS)'
-		
-
-build: lowPrior highPrior
-
-run: build
-	@$(call msg,Running the test ...)
-	@bash -c 'source ${ONEAPI_ROOT}/setvars.sh --force 2> /dev/null && \
-		./memEviction_gpuTestTool.sh'
+run: gpuMemEvictTestTool
+	@$(call msg,Running the gpuMemEvictTestTool application ...)
+	@bash -c 'source ${ONEAPI_ROOT}/setvars.sh --force &> /dev/null && \
+		./gpuMemEvictTestTool.sh 2'
 
 clean:
-	@rm -rf lowPrior highPrior
+	@rm -rf gpuMemEvictTestTool
 
 #----------------------------------------------------------------------------------------------------------------------
 # helper functions
