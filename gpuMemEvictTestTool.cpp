@@ -353,6 +353,7 @@ int main(int argc, char* argv[])
 	cl_int err;
 
 	if ( slavePid != -1 ) {
+		std::cout << "\t " << PRIO_TO_NAME() << ": Suspending Process "  << slavePid << std::endl;
 		kill(slavePid, SIGSTOP);
 	}
 
@@ -554,6 +555,7 @@ int main(int argc, char* argv[])
 	std::cout << "\t" << PRIO_TO_NAME() << YELLOW << "ended" << RESET << std::endl;
 
 	if ( slavePid != -1 ) {
+		std::cout << "\t " << PRIO_TO_NAME() << ": Resuming Process "  << slavePid << std::endl;
 		kill(slavePid, SIGCONT);
 	}
 
