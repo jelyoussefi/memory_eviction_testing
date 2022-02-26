@@ -394,9 +394,7 @@ int main(int argc, char* argv[])
 	bool running = true;
 	std::thread thr(activity, &running);
 	signal(SIGSTOP, signalHandler);  
-	//signal(SIGCONT, signalHandler);  
-	//signal(SIGKILL, signalHandler);  
-
+	signal(SIGCONT, signalHandler);  
 
 	// Set up a GPU device if available, exit if not GPU
 	cl_device_id device_id;
