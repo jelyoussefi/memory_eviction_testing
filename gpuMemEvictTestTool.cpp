@@ -9,10 +9,13 @@
 #include <iomanip>
 #include <vector>
 #include <iostream>
+#include <fstream>
 #include <ctime>
 #include <chrono>
+#include <thread>
 
 
+using namespace std::chrono;
 using Clock = std::chrono::high_resolution_clock;
 
 
@@ -70,6 +73,7 @@ typedef struct {
 //----------------------------------------------------------------------------------------------------------------------
 static bool highPrio = false;
 static int debug_level = 1;
+static std::ofstream file;
 
 //----------------------------------------------------------------------------------------------------------------------
 // Local functions
@@ -131,6 +135,23 @@ static cl_mem CreateBuffer(cl_context ctx, cl_mem_flags flags, size_t size, void
  	return buf;
 }
 
+
+static void Record(uint32_t val) {
+	auto ts = duration_cast< milliseconds >(system_clock::now().time_since_epoch()).count();
+	file << std::fixed<<std::setprecision(3) << ts << "\t" << val << std::endl;
+}
+
+static void Monitor(bool* running) {
+	Record(0);
+
+	while(*running) {
+		Record(1);
+		usleep(500000);
+	}
+
+	Record(0);
+
+}
 
 
 static void PrintDeviceInfo(cl_device_id device) {
@@ -352,10 +373,16 @@ int main(int argc, char* argv[])
 	duration *= 1000; 
 	cl_int err;
 
+	std::string filename = (highPrio ? "./highPrio.dat" : "lowPrio.dat");
+	file.open (filename);
+
 	if ( slavePid != -1 ) {
 		std::cout << "\t " << PRIO_TO_NAME() << ": Suspending Process "  << slavePid << std::endl;
 		kill(slavePid, SIGSTOP);
 	}
+
+	bool running = true;
+	std::thread thr(Monitor, &running);
 
 	// Set up a GPU device if available, exit if not GPU
 	cl_device_id device_id;
@@ -558,6 +585,10 @@ int main(int argc, char* argv[])
 		std::cout << "\t " << PRIO_TO_NAME() << ": Resuming Process "  << slavePid << std::endl;
 		kill(slavePid, SIGCONT);
 	}
+
+	running = false;
+	thr.join();
+	file.close();
 
 	return 0;
 }

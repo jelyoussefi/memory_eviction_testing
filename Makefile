@@ -10,7 +10,7 @@ export TERM=xterm
 
 CXX_COMPILER=dpcpp
 CXXFLAGS=-g -Wno-c++20-extensions -Wno-deprecated-declarations
-LDFLAGS=-lOpenCL
+LDFLAGS=-lOpenCL -lpthread
 #----------------------------------------------------------------------------------------------------------------------
 # Targets
 #----------------------------------------------------------------------------------------------------------------------

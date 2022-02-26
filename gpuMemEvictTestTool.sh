@@ -6,12 +6,12 @@ first1=$(date +"%s")
 
 echo "launch gpuTestTool with unique in the backgroud; save its pid"
 echo ""
-./gpuMemEvictTestTool -m 0.8 -t 120 &
+./gpuMemEvictTestTool -m 0.8 -t 30 &
 thepid=$!
 
 sleep 15
 
 
-./gpuMemEvictTestTool -m 0.6 -t 20 -p $thepid
+./gpuMemEvictTestTool -m 0.6 -t 15 -p $thepid
 
 
