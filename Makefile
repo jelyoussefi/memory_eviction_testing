@@ -30,6 +30,8 @@ run: gpuMemEvictTestTool
 	@bash -c 'source ${ONEAPI_ROOT}/setvars.sh --force &> /dev/null && \
 		./gpuMemEvictTestTool.sh '
 
+show:
+	@gnuplot chart.txt 
 clean:
 	@rm -rf gpuMemEvictTestTool
 

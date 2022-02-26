@@ -150,13 +150,13 @@ static void record(uint32_t val) {
 }
 
 static void activity(bool* running) {
-	record(0);
+	record( 0);
 
 	while(*running) {
-		record(1);
+		record(highPrio ? 2: 1);
 		usleep(500000);
 	}
-
+	record(highPrio ? 2: 1);
 	record(0);
 
 }
