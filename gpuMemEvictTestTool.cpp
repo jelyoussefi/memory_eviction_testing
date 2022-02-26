@@ -384,10 +384,6 @@ int main(int argc, char* argv[])
 	std::string filename = (highPrio ? "./highPrio.dat" : "lowPrio.dat");
 	file.open (filename);
 
-	if ( slavePid != -1 ) {
-		std::cout << "\t " << PRIO_TO_NAME() << ": Suspending Process "  << slavePid << std::endl;
-		kill(slavePid, SIGSTOP);
-	}
 
 	bool running = true;
 	std::thread thr(activity, &running);
@@ -413,8 +409,12 @@ int main(int argc, char* argv[])
 	std::cout << "\t\t  Mem Size    :\t" << (float)deviceMemSize/GB << " GB"<<std::endl;
 	std::cout << "\t\t  Pid         :\t" << getpid() << std::endl;
 	std::cout << "\t\t  Required Mem:\t" << (float)(memSize)/GB << " GB" << std::endl;
-	std::cout << "----------------------------------------------------------------------------" << std::endl;
-
+	std::cout << "    ------------------------------------------------------------------------" << std::endl;
+	if ( slavePid != -1 ) {
+			std::cout << "\t" << PRIO_TO_NAME() << YELLOW << ": Suspending Process "  << RESET << slavePid << std::endl;
+			kill(slavePid, SIGSTOP);
+			std::cout << "    ------------------------------------------------------------------------" << std::endl;
+		}
 
 	printDeviceInfo(device_id);
     
@@ -451,7 +451,7 @@ int main(int argc, char* argv[])
 	
     TIMER_START(creationTime);
 
-	std::cout << "\t " << PRIO_TO_NAME() << ": Creating buffers "  << std::endl;
+	std::cout << "\t\t" << PRIO_TO_NAME() << ": Creating buffers "  << std::endl;
 
 	std::vector<matrix_t> operations;
 
@@ -478,7 +478,7 @@ int main(int argc, char* argv[])
     
     delete[] inBuff;
 
-	std::cout << "\t " << PRIO_TO_NAME() << ": Building the kernels "  << std::endl;
+	std::cout << "\t\t" << PRIO_TO_NAME() << ": Building the kernels "  << std::endl;
 
 	cl_kernel kernel;
 	{
@@ -517,7 +517,7 @@ int main(int argc, char* argv[])
 
 
 	if(err == CL_SUCCESS) {
-		std::cout << "\t " << PRIO_TO_NAME() << ": Running the application "  << std::endl;
+		std::cout << "\t\t" << PRIO_TO_NAME() << ": Running the application "  << std::endl;
 
 		size_t gws = buffSize/sizeof(float);
 		float* outBuff = new float[buffSize/sizeof(float)]();
@@ -570,7 +570,7 @@ int main(int argc, char* argv[])
 			}
 
 			if ( debug_level >= 1 ) {
-				std::cout << "\t\t" << PRIO_TO_NAME() << "Loop : " << std::to_string(oLoop) << std::endl ;
+				std::cout << "\t\t\t" << PRIO_TO_NAME() << "Loop : " << std::to_string(oLoop) << std::endl ;
 			}
 			oLoop++;
 		}
@@ -591,11 +591,12 @@ int main(int argc, char* argv[])
 
 	std::cout << "\n----------------------------------------------------------------------------" << std::endl;
 	std::cout << "\t"<< PRIO_TO_NAME() << "application "  << YELLOW << "ended" << RESET << std::endl;
-	std::cout << "\n----------------------------------------------------------------------------" << std::endl;
+	std::cout << "----------------------------------------------------------------------------" << std::endl;
 
 	if ( slavePid != -1 ) {
-		std::cout << "\t " << PRIO_TO_NAME() << ": Resuming Process "  << slavePid << std::endl;
+		std::cout << "\t" << PRIO_TO_NAME() << YELLOW << ": Resuming Process "  << RESET << slavePid << std::endl;
 		kill(slavePid, SIGCONT);
+		std::cout << "    ------------------------------------------------------------------------" << std::endl;
 	}
 
 	running = false;
