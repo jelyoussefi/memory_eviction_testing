@@ -408,7 +408,7 @@ int main(int argc, char* argv[])
 	size_t nbOperations =  (memSize)/(3*buffSize);
 
 	std::cout << "\n----------------------------------------------------------------------------" << std::endl;
-	std::cout << PRIO_TO_NAME() << "application "  << YELLOW << "started" std::endl;
+	std::cout << PRIO_TO_NAME() << "application "  << YELLOW << "started" << std::endl;
 	std::cout << "\t  Device Name :\t" << getDeviceName(device_id) << std::endl;
 	std::cout << "\t  Mem Size    :\t" << (float)deviceMemSize/GB << " GB"<<std::endl;
 	std::cout << "\t  Pid         :\t" << getpid() << std::endl;
@@ -589,7 +589,7 @@ int main(int argc, char* argv[])
 	clReleaseCommandQueue(q);
 	clReleaseContext(context);
 
-	std::cout << PRIO_TO_NAME() << "application "  << YELLOW << "ended" std::endl;
+	std::cout << PRIO_TO_NAME() << "application "  << YELLOW << "ended" << std::endl;
 
 	if ( slavePid != -1 ) {
 		std::cout << "\t " << PRIO_TO_NAME() << ": Resuming Process "  << slavePid << std::endl;
