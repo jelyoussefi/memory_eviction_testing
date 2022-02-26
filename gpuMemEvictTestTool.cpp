@@ -5,6 +5,7 @@
 #include <stdio.h>
 #include <assert.h>
 #include <unistd.h>
+#include <signal.h>
 #include <iomanip>
 #include <vector>
 #include <iostream>
@@ -351,6 +352,10 @@ int main(int argc, char* argv[])
 	duration *= 1000; 
 	cl_int err;
 
+	if ( slavePid != -1 ) {
+		kill(slavePid, SIGSTOP);
+	}
+
 	// Set up a GPU device if available, exit if not GPU
 	cl_device_id device_id;
 	err = GetFirstAvailableDevice(CL_DEVICE_TYPE_GPU, device_id);
@@ -548,6 +553,9 @@ int main(int argc, char* argv[])
 
 	std::cout << "\t" << PRIO_TO_NAME() << YELLOW << "ended" << RESET << std::endl;
 
+	if ( slavePid != -1 ) {
+		kill(slavePid, SIGCONT);
+	}
 
 	return 0;
 }
