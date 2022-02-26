@@ -138,7 +138,7 @@ static cl_mem createBuffer(cl_context ctx, cl_mem_flags flags, size_t size, void
 
 
 static void signalHandler( int signum ) {
-   std::cout << "Interrupt signal (" << signum << ") received" << std::endl;
+ //  std::cout << "Interrupt signal (" << signum << ") received" << std::endl;
 
    // cleanup and close up stuff here  
    // terminate program  
