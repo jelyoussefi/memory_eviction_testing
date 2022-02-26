@@ -7,6 +7,7 @@
 #include <unistd.h>
 #include <signal.h>
 #include <iomanip>
+#include <csignal>
 #include <vector>
 #include <iostream>
 #include <fstream>
@@ -91,7 +92,7 @@ static void timeDisplay(std::string name, float duration, uint32_t level=1) {
 }
 
 
-static void PrintBuildLog(cl_program vadd_kernel_program, cl_device_id device_id) {
+static void printBuildLog(cl_program vadd_kernel_program, cl_device_id device_id) {
 	// Determine the size of the log
 	size_t log_size;
 	clGetProgramBuildInfo(vadd_kernel_program, device_id, CL_PROGRAM_BUILD_LOG, 0, NULL, &log_size);
@@ -107,7 +108,7 @@ static void PrintBuildLog(cl_program vadd_kernel_program, cl_device_id device_id
     free(log);
 }
 
-static std::string GetDeviceName(cl_device_id device) {
+static std::string getDeviceName(cl_device_id device) {
 	char device_string[1024];
 
 	// CL_DEVICE_NAME
@@ -116,14 +117,14 @@ static std::string GetDeviceName(cl_device_id device) {
 	return device_string;
 }
 
-static cl_ulong GetDeviceMemorySize(cl_device_id device) {
+static cl_ulong getDeviceMemorySize(cl_device_id device) {
 	
 	cl_ulong mem_size;
 	clGetDeviceInfo(device, CL_DEVICE_GLOBAL_MEM_SIZE, sizeof(mem_size), &mem_size, NULL);
 	return mem_size;
 }
 
-static cl_mem CreateBuffer(cl_context ctx, cl_mem_flags flags, size_t size, void *host_ptr, pid_t slavePid=-1) {
+static cl_mem createBuffer(cl_context ctx, cl_mem_flags flags, size_t size, void *host_ptr, pid_t slavePid=-1) {
 	cl_int err;
 	cl_mem buf = clCreateBuffer(ctx, flags, size, host_ptr, &err);
 
@@ -136,25 +137,34 @@ static cl_mem CreateBuffer(cl_context ctx, cl_mem_flags flags, size_t size, void
 }
 
 
-static void Record(uint32_t val) {
+static void signalHandler( int signum ) {
+   std::cout << "Interrupt signal (" << signum << ") received" << std::endl;
+
+   // cleanup and close up stuff here  
+   // terminate program  
+
+   exit(signum);  
+}
+
+static void record(uint32_t val) {
 	auto ts = duration_cast< milliseconds >(system_clock::now().time_since_epoch()).count();
 	file << std::fixed<<std::setprecision(3) << ts << "\t" << val << std::endl;
 }
 
-static void Monitor(bool* running) {
-	Record(0);
+static void activity(bool* running) {
+	record(0);
 
 	while(*running) {
-		Record(1);
+		record(1);
 		usleep(500000);
 	}
 
-	Record(0);
+	record(0);
 
 }
 
 
-static void PrintDeviceInfo(cl_device_id device) {
+static void printDeviceInfo(cl_device_id device) {
 
 	if ( debug_level <= 2 ) {
 		return;
@@ -295,7 +305,7 @@ void printf_exit(char* errmsg, cl_int err)
 	exit(1);
 }
 
-cl_int GetFirstAvailableDevice(cl_device_type type_device, cl_device_id& device_id)
+cl_int getFirstAvailableDevice(cl_device_type type_device, cl_device_id& device_id)
 {
 	int bFoundGPU = 0;
 	int i, dc, dg;
@@ -382,31 +392,35 @@ int main(int argc, char* argv[])
 	}
 
 	bool running = true;
-	std::thread thr(Monitor, &running);
+	std::thread thr(activity, &running);
+	signal(SIGSTOP, signalHandler);  
+	//signal(SIGCONT, signalHandler);  
+	//signal(SIGKILL, signalHandler);  
+
 
 	// Set up a GPU device if available, exit if not GPU
 	cl_device_id device_id;
-	err = GetFirstAvailableDevice(CL_DEVICE_TYPE_GPU, device_id);
+	err = getFirstAvailableDevice(CL_DEVICE_TYPE_GPU, device_id);
 	if (err != CL_SUCCESS) {
 		std::cout << "No GPU found. Exit\n";
 		return -1;
 	}
 
 	const size_t buffSize = 512 * MB;
-	cl_ulong deviceMemSize = GetDeviceMemorySize(device_id);
+	cl_ulong deviceMemSize = getDeviceMemorySize(device_id);
 	auto memSize = deviceMemSize * memRatio;
 	size_t nbOperations =  (memSize)/(3*buffSize);
 
 	std::cout << "\n----------------------------------------------------------------------------" << std::endl;
 	std::cout << "\tLaunching " << PRIO_TO_NAME() << "application "  << std::endl;
-	std::cout << "\t  Device Name :\t" << GetDeviceName(device_id) << std::endl;
+	std::cout << "\t  Device Name :\t" << getDeviceName(device_id) << std::endl;
 	std::cout << "\t  Mem Size    :\t" << (float)deviceMemSize/GB << " GB"<<std::endl;
 	std::cout << "\t  Pid         :\t" << getpid() << std::endl;
 	std::cout << "\t  Required Mem:\t" << (float)(memSize)/GB << " GB" << std::endl;
 	std::cout << "----------------------------------------------------------------------------" << std::endl;
 
 
-	PrintDeviceInfo(device_id);
+	printDeviceInfo(device_id);
     
     auto startTime = Clock::now();
     cl_context context = clCreateContext(NULL, 1, &device_id, NULL, NULL, &err);
@@ -448,9 +462,9 @@ int main(int argc, char* argv[])
 	for(int i = 0; i < nbOperations; i++) {
 	
 		matrix_t mat;
-		mat.A  = CreateBuffer(context, CL_MEM_READ_ONLY  | CL_MEM_COPY_HOST_PTR, buffSize, inBuff); 
-		mat.B  = CreateBuffer(context, CL_MEM_READ_ONLY  | CL_MEM_COPY_HOST_PTR, buffSize, inBuff); 
-		mat.C  = CreateBuffer(context, CL_MEM_WRITE_ONLY | CL_MEM_ALLOC_HOST_PTR, buffSize, NULL); 
+		mat.A  = createBuffer(context, CL_MEM_READ_ONLY  | CL_MEM_COPY_HOST_PTR, buffSize, inBuff); 
+		mat.B  = createBuffer(context, CL_MEM_READ_ONLY  | CL_MEM_COPY_HOST_PTR, buffSize, inBuff); 
+		mat.C  = createBuffer(context, CL_MEM_WRITE_ONLY | CL_MEM_ALLOC_HOST_PTR, buffSize, NULL); 
 
 		err = clFinish(q);
 		if (err != CL_SUCCESS) {
@@ -494,7 +508,7 @@ int main(int argc, char* argv[])
 			printf("Failed to compile OpenCL program %d\n", err);
 			if (err == CL_BUILD_PROGRAM_FAILURE)
 			{
-				PrintBuildLog(vadd_kernel_program, device_id);
+				printBuildLog(vadd_kernel_program, device_id);
 			}
 		}
 
