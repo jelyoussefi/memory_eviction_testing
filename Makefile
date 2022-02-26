@@ -9,7 +9,7 @@ ONEAPI_ROOT ?= /opt/intel/oneapi
 export TERM=xterm
 
 CXX_COMPILER=dpcpp
-CXXFLAGS=-Wno-c++20-extensions -Wno-deprecated-declarations
+CXXFLAGS=-g -Wno-c++20-extensions -Wno-deprecated-declarations
 LDFLAGS=-lOpenCL
 #----------------------------------------------------------------------------------------------------------------------
 # Targets
@@ -23,10 +23,12 @@ gpuMemEvictTestTool:
 	@bash -c 'source ${ONEAPI_ROOT}/setvars.sh --force &> /dev/null && \
 		$(CXX_COMPILER) $(CXXFLAGS) $@.cpp -o $@ $(LDFLAGS)'
 
+build: gpuMemEvictTestTool
+
 run: gpuMemEvictTestTool
 	@$(call msg,Running the gpuMemEvictTestTool application ...)
 	@bash -c 'source ${ONEAPI_ROOT}/setvars.sh --force &> /dev/null && \
-		./gpuMemEvictTestTool.sh 2'
+		./gpuMemEvictTestTool.sh '
 
 clean:
 	@rm -rf gpuMemEvictTestTool

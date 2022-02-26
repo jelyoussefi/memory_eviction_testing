@@ -1,9 +1,12 @@
 #define CL_TARGET_OPENCL_VERSION 220
 #include <CL/cl_ext.h>
 #include <stdlib.h>
+#include <string.h>
 #include <stdio.h>
+#include <assert.h>
 #include <unistd.h>
 #include <iomanip>
+#include <vector>
 #include <iostream>
 #include <ctime>
 #include <chrono>
@@ -22,13 +25,10 @@ using Clock = std::chrono::high_resolution_clock;
 
 #define HTYPE float
 #define MAX_SOURCE_SIZE 100000
-#define MAX_SYNC_KERNELS 20
-#define KERNEL_NUM 2
 
 #define MAX_VECTOR_SIZE  128*1024*1024L // 128MB memory size in byte
-#define SKIP_ITEMS_NUM 256*1024 // 256K
 
-#define N MAX_VECTOR_SIZE
+//#define N MAX_VECTOR_SIZE
 
 #define dprintf(level, ...) \
 	if ( level <= debug_level ) { \
@@ -56,12 +56,18 @@ using Clock = std::chrono::high_resolution_clock;
 #define PRIO_TO_NAME()   ( highPrio ? RED : GREEN ) << ( highPrio ? "High Priority " : "Low Priority ") << RESET
 
 //----------------------------------------------------------------------------------------------------------------------
+// Typedefs
+//----------------------------------------------------------------------------------------------------------------------
+typedef struct {
+	cl_mem A;
+	cl_mem B;
+	cl_mem C;
+} matrix_t;
+
+//----------------------------------------------------------------------------------------------------------------------
 // Local data
 //----------------------------------------------------------------------------------------------------------------------
-
-static size_t skip_items = SKIP_ITEMS_NUM;
-static int nKernels = KERNEL_NUM;
-static bool highPrio = true;
+static bool highPrio = false;
 static int debug_level = 1;
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -104,6 +110,27 @@ static std::string GetDeviceName(cl_device_id device) {
 
 	return device_string;
 }
+
+static cl_ulong GetDeviceMemorySize(cl_device_id device) {
+	
+	cl_ulong mem_size;
+	clGetDeviceInfo(device, CL_DEVICE_GLOBAL_MEM_SIZE, sizeof(mem_size), &mem_size, NULL);
+	return mem_size;
+}
+
+static cl_mem CreateBuffer(cl_context ctx, cl_mem_flags flags, size_t size, void *host_ptr, pid_t slavePid=-1) {
+	cl_int err;
+	cl_mem buf = clCreateBuffer(ctx, flags, size, host_ptr, &err);
+
+	if (err != CL_SUCCESS) {
+		std::cout << "failed to create cl buffer of size" << size/MB <<  " MB, Error: " << std::to_string(err) << std::endl;
+		return nullptr;
+	}
+
+ 	return buf;
+}
+
+
 
 static void PrintDeviceInfo(cl_device_id device) {
 
@@ -296,15 +323,23 @@ cl_int GetFirstAvailableDevice(cl_device_type type_device, cl_device_id& device_
 
 int main(int argc, char* argv[])
 {
+
+	float memRatio = 0.5f;
+	float duration = 60;
+	pid_t slavePid = -1;
+
 	int c;
-    while ((c = getopt(argc, argv, "n:l")) != -1) {
+    while ((c = getopt(argc, argv, "m:t:p:")) != -1) {
 
     	switch (c) {
-            case 'n':
-                nKernels = atoi(optarg);
+            case 'm':
+                memRatio = std::stof(optarg);
             	break;
-            case 'l':
-                highPrio = false;
+            case 't':
+                duration = std::stof(optarg);
+            	break;
+            case 'p':
+                slavePid = atoi(optarg);
             	break;
             default:           
                 std::cout << "Got unknown parse returns: " << c << std::endl; 
@@ -312,8 +347,8 @@ int main(int argc, char* argv[])
     	}
     }
 
-	nKernels = std::min(nKernels,MAX_SYNC_KERNELS);
-
+	highPrio = (slavePid != -1);
+	duration *= 1000; 
 	cl_int err;
 
 	// Set up a GPU device if available, exit if not GPU
@@ -325,21 +360,22 @@ int main(int argc, char* argv[])
 	}
 
 	const size_t buffSize = 512 * MB;
-	size_t maxSources =  (highPrio ? 14: 57);
+	cl_ulong deviceMemSize = GetDeviceMemorySize(device_id);
+	auto memSize = deviceMemSize * memRatio;
+	size_t nbOperations =  (memSize)/(3*buffSize);
 
 	std::cout << "\n----------------------------------------------------------------------------" << std::endl;
 	std::cout << "\tLaunching " << PRIO_TO_NAME() << "application "  << std::endl;
 	std::cout << "\t  Device Name :\t" << GetDeviceName(device_id) << std::endl;
-	std::cout << "\t  Nb kernels  :\t" << nKernels << std::endl;
+	std::cout << "\t  Mem Size    :\t" << (float)deviceMemSize/GB << " GB"<<std::endl;
 	std::cout << "\t  Pid         :\t" << getpid() << std::endl;
-	std::cout << "\t  Nb buffers  :\t" << maxSources << " (" << buffSize/MB << " MB)" << std::endl;
+	std::cout << "\t  Required Mem:\t" << (float)(memSize)/GB << " GB" << std::endl;
 	std::cout << "----------------------------------------------------------------------------" << std::endl;
-
-	skip_items = SKIP_ITEMS_NUM;
 
 
 	PrintDeviceInfo(device_id);
     
+    auto startTime = Clock::now();
     cl_context context = clCreateContext(NULL, 1, &device_id, NULL, NULL, &err);
 	if (err != CL_SUCCESS) {
 		std::cout << "failed to init context. Error: " << std::to_string(err) << std::endl;
@@ -363,43 +399,43 @@ int main(int argc, char* argv[])
 	}
 
 	/// main body
-	
-	size_t sourcesCreated = 0;
-	const cl_mem_flags memFlags = CL_MEM_READ_WRITE;
-
-	cl_mem sources[maxSources];
-	for(size_t i = 0; i < maxSources ; i++) {
-		sources[i] = 0;
-	}
 
 	float* inBuff = new float[buffSize/sizeof(float)]();
 	for(size_t j = 0; j < buffSize/sizeof(float); j++) 	{
 		inBuff[j] = 1.0f;
 	}
 
+	
     TIMER_START(creationTime);
 
-	for(size_t i = 0; i < maxSources ; i++) {
-		//sources[i] = clCreateBuffer(context, memFlags, buffSize, nullptr, &err);
-		sources[i] = clCreateBuffer(context, memFlags | CL_MEM_COPY_HOST_PTR, buffSize, inBuff, &err);
-		if (err != CL_SUCCESS) {
-			std::cout << "failed to create buff: " << std::to_string(i) <<  " Error: " << std::to_string(err) << std::endl;
-			break;
-		}
+	std::cout << "\t " << PRIO_TO_NAME() << ": Creating buffers "  << std::endl;
+
+	std::vector<matrix_t> operations;
+
+	for(int i = 0; i < nbOperations; i++) {
+	
+		matrix_t mat;
+		mat.A  = CreateBuffer(context, CL_MEM_READ_ONLY  | CL_MEM_COPY_HOST_PTR, buffSize, inBuff); 
+		mat.B  = CreateBuffer(context, CL_MEM_READ_ONLY  | CL_MEM_COPY_HOST_PTR, buffSize, inBuff); 
+		mat.C  = CreateBuffer(context, CL_MEM_WRITE_ONLY | CL_MEM_ALLOC_HOST_PTR, buffSize, NULL); 
 
 		err = clFinish(q);
 		if (err != CL_SUCCESS) {
-			std::cout << "failed to finish unmap buff: " << std::to_string(i) <<  " Error: " << std::to_string(err) << std::endl;
-			break;
+			std::cout << "failed to finish unmap buff " << std::endl;
+			return -1;
 		}
-		sourcesCreated+=1;
+
+		assert(mat.A != nullptr && mat.B != nullptr && mat.C != nullptr);
+	
+		operations.push_back(mat);
+
 	}
 
-    TIMER_STOP(creationTime, "creation time" );
-
+    //TIMER_STOP(creationTime, "creation time" );
     
     delete[] inBuff;
 
+	std::cout << "\t " << PRIO_TO_NAME() << ": Building the kernels "  << std::endl;
 
 	cl_kernel kernel;
 	{
@@ -427,7 +463,6 @@ int main(int argc, char* argv[])
 			{
 				PrintBuildLog(vadd_kernel_program, device_id);
 			}
-
 		}
 
 		kernel = clCreateKernel(vadd_kernel_program, "vadd", &err);
@@ -437,23 +472,28 @@ int main(int argc, char* argv[])
 		free((void*)vadd_source);
 	}
 
-	size_t gws = buffSize/sizeof(float);
 
 	if(err == CL_SUCCESS) {
-		std::cout << "\t" <<PRIO_TO_NAME() << YELLOW << "started" << RESET << std::endl;
-		size_t oLoop = 0;
-		const size_t maxLoops = 48 * (highPrio ? 1 : 6); 
+		std::cout << "\t " << PRIO_TO_NAME() << ": Running the application "  << std::endl;
 
-		while( oLoop++ < maxLoops ) {
+		size_t gws = buffSize/sizeof(float);
+		float* outBuff = new float[buffSize/sizeof(float)]();
+	
+		uint32_t oLoop = 0;
+
+		while( timeElapsed(startTime) < duration ) {
  
-			for(size_t iter = 0; iter < sourcesCreated;) {
+			for(size_t i = 0; i < operations.size(); i++) {
 				cl_event evt;
 				cl_ulong enqstart = 0;
 				cl_ulong enqend = 0;
 
-				err |= clSetKernelArg(kernel, 0, sizeof(sources[iter + 0]), &sources[iter + 0]);
-				err |= clSetKernelArg(kernel, 1, sizeof(sources[iter + 1]), &sources[iter + 1] );
-				err |= clSetKernelArg(kernel, 2, sizeof(sources[iter + 2]), &sources[iter + 2] );
+				memset(outBuff, 0, buffSize);
+				auto mat = operations[i];
+
+				err |= clSetKernelArg(kernel, 0, sizeof(mat.A), &mat.A ); 
+				err |= clSetKernelArg(kernel, 1, sizeof(mat.B), &mat.B ); 
+				err |= clSetKernelArg(kernel, 2, sizeof(mat.C), &mat.C );
 
 				err |= clEnqueueNDRangeKernel(q, kernel, 1, nullptr, &gws, NULL, 0, nullptr, &evt);
 				err |= clWaitForEvents(1, &evt);
@@ -471,32 +511,42 @@ int main(int argc, char* argv[])
 
 				float cmdQEnQTime = float((cl_double)(enqend - enqstart) * (cl_double)(1e-09));
 				if ( debug_level >= 2 ) {
-					std::cout << "\t\t" << PRIO_TO_NAME() << std::to_string(iter/3) << " time " << std::to_string(cmdQEnQTime) << std::endl ;
+					std::cout << "\t\t" << PRIO_TO_NAME() << std::to_string(i) << " time " << std::to_string(cmdQEnQTime) << std::endl ;
 				}
 				clReleaseEvent(evt);
 
-				//iterator
-				iter +=3;
+				err = clEnqueueReadBuffer(q, mat.C, CL_TRUE, 0, buffSize, outBuff, 0, NULL, NULL);
+
+				for(size_t j = 0; j < buffSize/sizeof(float); j++) 	{
+					if ( outBuff[j] != 2.0f ) {
+						std::cout << RED << "\tMatrix addition failed" << RESET << std::endl;
+						break;
+					}
+					
+				}
 			}
+
 			if ( debug_level >= 1 ) {
 				std::cout << "\t\t" << PRIO_TO_NAME() << "Loop : " << std::to_string(oLoop) << std::endl ;
 			}
+			oLoop++;
 		}
+
+		delete[] outBuff;
 	}
 
 
 	//cleanup
-	for(size_t i = 0; i < sourcesCreated ; i++) {
-		if(sources[i] != 0) {
-			clReleaseMemObject(sources[i]);
-		}
-		else { std::cout << "\t " << std::to_string(i) <<" Empty\n" ;}
+	for(size_t i = 0; i < operations.size(); i++) {
+		clReleaseMemObject(operations[i].A);
+		clReleaseMemObject(operations[i].B);
+		clReleaseMemObject(operations[i].C);
 	}
 
 	clReleaseCommandQueue(q);
 	clReleaseContext(context);
 
-	std::cout << "\t"<< PRIO_TO_NAME() << YELLOW << "ended" << RESET << std::endl;
+	std::cout << "\t" << PRIO_TO_NAME() << YELLOW << "ended" << RESET << std::endl;
 
 
 	return 0;

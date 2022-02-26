@@ -8,14 +8,15 @@ echo "launch gpuTestTool with unique in the backgroud; save its pid"
 ./gpuMemEvictTestTool -l &
 thepid=$!
 
-sleep 10
+sleep 15
 echo "\n\tSuspending the low priority gpuTestTool after 10 sec"
 kill -STOP $thepid
 first2=$(date +"%s")
 sleep 3
 
 #echo "start_time 2: "$start2
-./gpuMemEvictTestTool -n $1 
+./gpuMemEvictTestTool 
+
 
 echo "\tResuming the low priority gpuTestTool & wait for it to finish"
 second1=$(date +"%s")
