@@ -11,6 +11,10 @@
 #include <vector>
 #include <iostream>
 #include <fstream>
+#include <sstream> 
+#include <iterator>
+#include <numeric>
+#include <algorithm>
 #include <ctime>
 #include <chrono>
 #include <thread>
@@ -124,6 +128,20 @@ static cl_ulong getDeviceMemorySize(cl_device_id device) {
 	return mem_size;
 }
 
+static cl_ulong getAllocatedMemorySize() {
+	std::ifstream input( "/sys/kernel/debug/dri/0/i915_gem_objects" );
+
+	for( std::string line; getline( input, line ); ) {
+		if ( line.find("object") != std::string::npos ) {
+			std::istringstream iss(line);
+			std::vector<std::string> results(std::istream_iterator<std::string>{iss},
+                                 std::istream_iterator<std::string>());
+			return stoul(results[5]);
+	    }
+	}
+	return 0;
+}
+
 static cl_mem createBuffer(cl_context ctx, cl_mem_flags flags, size_t size, void *host_ptr, pid_t slavePid=-1) {
 	cl_int err;
 	cl_mem buf = clCreateBuffer(ctx, flags, size, host_ptr, &err);
@@ -137,30 +155,18 @@ static cl_mem createBuffer(cl_context ctx, cl_mem_flags flags, size_t size, void
 }
 
 
-static void signalHandler( int signum ) {
- //  std::cout << "Interrupt signal (" << signum << ") received" << std::endl;
-
-   // cleanup and close up stuff here  
-   // terminate program  
-}
-
-static void record(uint32_t val) {
+static void record(float memSize) {
 	auto ts = duration_cast< milliseconds >(system_clock::now().time_since_epoch()).count();
-	file << std::fixed<<std::setprecision(3) << ts << "\t" << val << std::endl;
+	file << std::fixed<<std::setprecision(2) << ts << "\t" << memSize << std::endl;
 }
 
 static void activity(bool* running) {
-	record( 0);
 
 	while(*running) {
-		record(highPrio ? 2: 1);
+		record((float)(double)getAllocatedMemorySize()/GB);
 		usleep(500000);
 	}
-	record(highPrio ? 2: 1);
-	record(0);
-
 }
-
 
 static void printDeviceInfo(cl_device_id device) {
 
@@ -387,9 +393,7 @@ int main(int argc, char* argv[])
 
 	bool running = true;
 	std::thread thr(activity, &running);
-	signal(SIGSTOP, signalHandler);  
-	signal(SIGCONT, signalHandler);  
-
+	
 	// Set up a GPU device if available, exit if not GPU
 	cl_device_id device_id;
 	err = getFirstAvailableDevice(CL_DEVICE_TYPE_GPU, device_id);

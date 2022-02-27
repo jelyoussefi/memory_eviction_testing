@@ -27,7 +27,7 @@ build: gpuMemEvictTestTool
 
 run: gpuMemEvictTestTool
 	@$(call msg,Running the gpuMemEvictTestTool application ...)
-	@bash -c 'source ${ONEAPI_ROOT}/setvars.sh --force &> /dev/null && \
+	@sudo bash -c 'source ${ONEAPI_ROOT}/setvars.sh --force &> /dev/null && \
 		./gpuMemEvictTestTool.sh '
 
 show:
