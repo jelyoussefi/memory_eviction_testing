@@ -1,10 +1,10 @@
-#!/bin/sh
+#!/bin/bash
 
-./gpuMemEvictTestTool -m 0.8 -t 60 &
+./gpuMemEvictTestTool -m $1 -t 50 &
 thepid=$!
 
 sleep 15
 
-./gpuMemEvictTestTool -m 0.6 -t 20 -p $thepid
+./gpuMemEvictTestTool -m $2 -t 20 -p $thepid
 
 

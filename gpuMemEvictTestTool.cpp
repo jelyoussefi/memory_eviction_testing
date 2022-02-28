@@ -387,7 +387,8 @@ int main(int argc, char* argv[])
 	duration *= 1000; 
 	cl_int err;
 
-	std::string filename = (highPrio ? "./highPrio.dat" : "lowPrio.dat");
+	std::string filename = (highPrio ? "./output/highPrio.dat" : "./output/lowPrio.dat");
+
 	file.open (filename);
 
 
@@ -409,13 +410,14 @@ int main(int argc, char* argv[])
 
 	std::cout << "\n----------------------------------------------------------------------------" << std::endl;
 	std::cout << "\t"<< PRIO_TO_NAME() << "application "  << YELLOW << "started" << RESET << std::endl;
-	std::cout << "\t\t  Device Name :\t" << getDeviceName(device_id) << std::endl;
-	std::cout << "\t\t  Mem Size    :\t" << (float)deviceMemSize/GB << " GB"<<std::endl;
+	std::cout << "\t\t  Device Name 	:\t" << getDeviceName(device_id) << std::endl;
+	std::cout << "\t\t  Device Mem Size :\t" << (float)deviceMemSize/GB << " GB"<<std::endl;
 	std::cout << "\t\t  Pid         :\t" << getpid() << std::endl;
 	std::cout << "\t\t  Required Mem:\t" << (float)(memSize)/GB << " GB" << std::endl;
 	std::cout << "    ------------------------------------------------------------------------" << std::endl;
 	if ( slavePid != -1 ) {
 			std::cout << "\t" << PRIO_TO_NAME() << YELLOW << ": Suspending Process "  << RESET << slavePid << std::endl;
+			//record(-(float)(double)getAllocatedMemorySize()/GB);
 			kill(slavePid, SIGSTOP);
 			std::cout << "    ------------------------------------------------------------------------" << std::endl;
 		}
@@ -599,6 +601,7 @@ int main(int argc, char* argv[])
 
 	if ( slavePid != -1 ) {
 		std::cout << "\t" << PRIO_TO_NAME() << YELLOW << ": Resuming Process "  << RESET << slavePid << std::endl;
+//		record(-(float)(double)getAllocatedMemorySize()/GB);
 		kill(slavePid, SIGCONT);
 		std::cout << "    ------------------------------------------------------------------------" << std::endl;
 	}

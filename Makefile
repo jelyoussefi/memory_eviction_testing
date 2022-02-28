@@ -28,12 +28,12 @@ build: gpuMemEvictTestTool
 run: gpuMemEvictTestTool
 	@$(call msg,Running the gpuMemEvictTestTool application ...)
 	@sudo bash -c 'source ${ONEAPI_ROOT}/setvars.sh --force &> /dev/null && \
-		./gpuMemEvictTestTool.sh '
+		./gpuMemEvictTestTool.sh 0.6 0.8'
 
 show:
-	@gnuplot chart.txt 
+	@python3  plot.py
 clean:
-	@rm -rf gpuMemEvictTestTool
+	@rm -rf gpuMemEvictTestTool 
 
 #----------------------------------------------------------------------------------------------------------------------
 # helper functions
