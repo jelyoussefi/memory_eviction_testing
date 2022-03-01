@@ -28,7 +28,7 @@ build: gpuMemEvictTestTool
 run: gpuMemEvictTestTool
 	@$(call msg,Running the gpuMemEvictTestTool application ...)
 	@sudo bash -c 'source ${ONEAPI_ROOT}/setvars.sh --force &> /dev/null && \
-		./gpuMemEvictTestTool.sh 0.6 0.8'
+		ZE_AFFINITY_MASK=1.0 ./gpuMemEvictTestTool.sh 0.6 0.8'
 
 show:
 	@python3  plot.py

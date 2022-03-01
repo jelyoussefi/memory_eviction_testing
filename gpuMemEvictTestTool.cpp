@@ -128,17 +128,6 @@ static cl_ulong getDeviceMemorySize(cl_device_id device) {
 	return mem_size;
 }
 
-std::vector<std::string> Split(std::string const& line) {
-    std::regex seps("[ ,:]+");
-    std::sregex_token_iterator rit(line.begin(), line.end(), seps, -1);
-    auto tokens = std::vector<std::string>(rit, std::sregex_token_iterator());
-    tokens.erase(std::remove_if(tokens.begin(),
-                                tokens.end(),
-                                [](std::string const& s){ return s.empty(); }),
-                 tokens.end());
-    return tokens;
-}
-
 static cl_ulong getAllocatedMemorySize() {
 	
 	std::ifstream input( "/sys/kernel/debug/dri/1/i915_gem_objects" );
@@ -181,7 +170,7 @@ static void activity(bool* running) {
 
 	while(*running) {
 		record((float)(double)getAllocatedMemorySize()/GB);
-		usleep(500000);
+		usleep(100000);
 	}
 }
 
