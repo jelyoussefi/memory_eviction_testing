@@ -18,7 +18,7 @@
 #include <ctime>
 #include <chrono>
 #include <thread>
-
+#include <regex>
 
 using namespace std::chrono;
 using Clock = std::chrono::high_resolution_clock;
@@ -128,15 +128,36 @@ static cl_ulong getDeviceMemorySize(cl_device_id device) {
 	return mem_size;
 }
 
+std::vector<std::string> Split(std::string const& line) {
+    std::regex seps("[ ,:]+");
+    std::sregex_token_iterator rit(line.begin(), line.end(), seps, -1);
+    auto tokens = std::vector<std::string>(rit, std::sregex_token_iterator());
+    tokens.erase(std::remove_if(tokens.begin(),
+                                tokens.end(),
+                                [](std::string const& s){ return s.empty(); }),
+                 tokens.end());
+    return tokens;
+}
+
 static cl_ulong getAllocatedMemorySize() {
-	std::ifstream input( "/sys/kernel/debug/dri/0/i915_gem_objects" );
+	
+	std::ifstream input( "/sys/kernel/debug/dri/1/i915_gem_objects" );
 
 	for( std::string line; getline( input, line ); ) {
-		if ( line.find("object") != std::string::npos ) {
-			std::istringstream iss(line);
-			std::vector<std::string> results(std::istream_iterator<std::string>{iss},
-                                 std::istream_iterator<std::string>());
-			return stoul(results[5]);
+		if ( line.find("local0") != std::string::npos ) {
+			std::regex seps("[ ,:]+");
+   			std::sregex_token_iterator rit(line.begin(), line.end(), seps, -1);
+    		auto tokens = std::vector<std::string>(rit, std::sregex_token_iterator());
+    		tokens.erase(std::remove_if(tokens.begin(), tokens.end(), [](std::string const& s){ return s.empty(); }), tokens.end());
+    		cl_ulong  totalMemSize, availableMemSize;
+    		std::istringstream(tokens[2]) >> std::hex >> totalMemSize; 
+			std::istringstream(tokens[3]) >> std::hex >> availableMemSize;
+
+			auto  allocatedMemSize = (totalMemSize - availableMemSize)/GB;
+
+			std::cout<<allocatedMemSize<<std::endl;
+    	
+			return allocatedMemSize;
 	    }
 	}
 	return 0;
