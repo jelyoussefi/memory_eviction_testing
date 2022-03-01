@@ -407,7 +407,10 @@ int main(int argc, char* argv[])
 	std::string filename = (highPrio ? "./output/highPrio.dat" : "./output/lowPrio.dat");
 
 	file.open (filename);
-
+	if (!file.is_open()) {
+		std::cout<<RED<<"Cannot open file "<<filename<<RESET<<std::endl;
+		exit(0);
+	}
 
 	bool running = true;
 	std::thread thr(activity, &running);
