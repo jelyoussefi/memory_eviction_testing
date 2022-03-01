@@ -151,12 +151,8 @@ static cl_ulong getAllocatedMemorySize() {
     		tokens.erase(std::remove_if(tokens.begin(), tokens.end(), [](std::string const& s){ return s.empty(); }), tokens.end());
     		cl_ulong  totalMemSize, availableMemSize;
     		std::istringstream(tokens[2]) >> std::hex >> totalMemSize; 
-			std::istringstream(tokens[3]) >> std::hex >> availableMemSize;
-
-			auto  allocatedMemSize = (totalMemSize - availableMemSize)/GB;
-
-			std::cout<<allocatedMemSize<<std::endl;
-    	
+			std::istringstream(tokens[4]) >> std::hex >> availableMemSize;
+			auto  allocatedMemSize = (totalMemSize - availableMemSize);
 			return allocatedMemSize;
 	    }
 	}
