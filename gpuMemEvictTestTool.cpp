@@ -438,6 +438,16 @@ int main(int argc, char* argv[])
 		slavePid = -1;	
 	}
 
+	std::string configFilename = (highPrio ? "./output/highPrio.json" : "./output/lowPrio.json");
+	std::ofstream jsonFile;
+	jsonFile.open (configFilename);
+	if (jsonFile.is_open()) {
+		std::cout<<"{\n"<<"\t{\"totalMemSize\": "<<deviceMemSize<<",";
+		std::cout<<"\t{\"memSizeRatio\": "<<memRatio;
+		std::cout<<"\n}"<<std::endl;
+		jsonFile.close();
+	}	
+
 	size_t nbOperations =  (requiredMemSize)/(3*buffSize);
 
 	std::cout << "\n----------------------------------------------------------------------------" << std::endl;

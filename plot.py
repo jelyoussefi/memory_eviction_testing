@@ -24,20 +24,27 @@ yHP = splev(xHP,bspl)
 
 x0 = min(xLP + xHP)
 
-splitIdx = 0
+splitIdx = -1
 
 for i in range(0, len(xLP)-1)  :
 	if ( xLP[i+1] - xLP[i] ) > 10000:
 		splitIdx = i;
 		break;
 		
-x1LP = xLP[:splitIdx]
-y1LP = yLP[:splitIdx]
-x2LP = xLP[splitIdx+1:]
-y2LP = yLP[splitIdx+1:]
+if splitIdx != -1:
+	x1LP = xLP[:splitIdx]
+	y1LP = yLP[:splitIdx]
+	x2LP = xLP[splitIdx+1:]
+	y2LP = yLP[splitIdx+1:]
+	xLPLimit = [ x1LP[0], x1LP[-1], x2LP[0], x2LP[-1] ]
+	yLPLimit = [ y1LP[0], y1LP[-1], y2LP[0], y2LP[-1] ]
+else:
+	x1LP = xLP
+	y1LP = yLP
+	xLPLimit = [ x1LP[0], x1LP[-1] ]
+	yLPLimit = [ y1LP[0], y1LP[-1] ]
 
-xLPLimit = [ x1LP[0], x1LP[-1], x2LP[0], x2LP[-1] ]
-yLPLimit = [ y1LP[0], y1LP[-1], y2LP[0], y2LP[-1] ]
+
 
 xHPLimit = [ xHP[0], xHP[-1] ]
 yHPLimit = [ yHP[0], yHP[-1] ]
@@ -45,14 +52,16 @@ yHPLimit = [ yHP[0], yHP[-1] ]
 	
 x1LP[:] = [float(x - x0)/1000 for x in x1LP]
 xHP[:] = [float(x - x0)/1000 for x in xHP]
-x2LP[:] = [float(x - x0)/1000 for x in x2LP]
+if splitIdx != -1:
+	x2LP[:] = [float(x - x0)/1000 for x in x2LP]
 xLPLimit[:] = [float(x - x0)/1000 for x in xLPLimit]
 xHPLimit[:] = [float(x - x0)/1000 for x in xHPLimit]
 
 
-plt.plot(xHP, yHP, color='r', label='High Priority Process')
 plt.plot(x1LP, y1LP, color='g', label='Low Priority Process')
-plt.plot(x2LP, y2LP, color='g')
+if splitIdx != -1:
+	plt.plot(x2LP, y2LP, color='g')
+plt.plot(xHP, yHP, color='r', label='High Priority Process')
 plt.scatter(xLPLimit, yLPLimit, color='g')
 plt.scatter(xHPLimit, yHPLimit, color='r')
 plt.legend()
