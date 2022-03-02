@@ -443,7 +443,7 @@ int main(int argc, char* argv[])
 	jsonFile.open (configFilename);
 	if (jsonFile.is_open()) {
 		jsonFile<<"{\n"<<"\t\"totalMemSize\": "<<deviceMemSize<<",";
-		jsonFile<<"\t\"memSizeRatio\": "<<memRatio;
+		jsonFile<<"\n\t\"memSizeRatio\": "<<memRatio;
 		jsonFile<<"\n}"<<std::endl;
 		jsonFile.close();
 	}	
