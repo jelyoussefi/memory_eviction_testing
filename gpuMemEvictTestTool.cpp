@@ -668,8 +668,8 @@ int main(int argc, char* argv[])
 
 	if ( slavePid != -1 ) {
 		std::cout << "\t" << PRIO_TO_NAME() << YELLOW << ": Resuming Process "  << RESET << slavePid << std::endl;
-		record((float)(double)getAllocatedMemorySize()/GB);
 		kill(slavePid, SIGCONT);
+		record((float)(double)getAllocatedMemorySize()/GB);
 		std::cout << "    ------------------------------------------------------------------------" << std::endl;
 	}
 
