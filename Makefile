@@ -11,6 +11,10 @@ export TERM=xterm
 CXX_COMPILER=dpcpp
 CXXFLAGS=-g -Wno-c++20-extensions -Wno-deprecated-declarations
 LDFLAGS=-lOpenCL -lpthread
+
+LP_MEM_RATIO ?= 0.5
+HP_MEM_RATIO ?= 0.8
+
 #----------------------------------------------------------------------------------------------------------------------
 # Targets
 #----------------------------------------------------------------------------------------------------------------------
@@ -28,7 +32,7 @@ build: gpuMemEvictTestTool
 run: gpuMemEvictTestTool
 	@$(call msg,Running the gpuMemEvictTestTool application ...)
 	@sudo bash -c 'source ${ONEAPI_ROOT}/setvars.sh --force &> /dev/null && \
-		ZE_AFFINITY_MASK=1.0 ./gpuMemEvictTestTool.sh 0.6 0.8'
+		ZE_AFFINITY_MASK=1.0 ./gpuMemEvictTestTool.sh ${LP_MEM_RATIO} ${HP_MEM_RATIO}'
 
 show:
 	@python3  plot.py

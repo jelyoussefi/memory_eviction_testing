@@ -1,5 +1,15 @@
+
 import matplotlib.pyplot as plt
 from scipy.interpolate import splrep, splev
+import json
+
+f = open('./output/lowPrio.json')
+configLP = json.load(f)
+f = open('./output/highPrio.json')
+configHP = json.load(f)
+f.close()
+
+totalMemGb = float(configLP["totalMemSize"])/(1024*1024*1024)
 
 xLP, yLP, xHP, yHP = [], [], [], []
  
@@ -58,15 +68,19 @@ xLPLimit[:] = [float(x - x0)/1000 for x in xLPLimit]
 xHPLimit[:] = [float(x - x0)/1000 for x in xHPLimit]
 
 
-plt.plot(x1LP, y1LP, color='g', label='Low Priority Process')
+plt.plot(x1LP, y1LP, color='g', label='Low Priority Process ({}%)'.format(int(configLP['memSizeRatio']*100)))
 if splitIdx != -1:
 	plt.plot(x2LP, y2LP, color='g')
-plt.plot(xHP, yHP, color='r', label='High Priority Process')
+plt.plot(xHP, yHP, color='r', label='High Priority Process ({}%)'.format(int(configHP['memSizeRatio']*100)))
 plt.scatter(xLPLimit, yLPLimit, color='g')
 plt.scatter(xHPLimit, yHPLimit, color='r')
-plt.legend()
+plt.hlines(totalMemGb, xLPLimit[0], xLPLimit[-1], color='b', linestyles='dashed', label='Total Memory size (GB)')
+plt.legend(loc="lower right")
 plt.xlabel('Timestamp (s)')
 plt.ylabel('Allocated memory size (GB)')
+plt.xlim(xmin=0)
+plt.ylim(ymin=0)
+plt.title("Memory Eviction");
 plt.show()
 
 

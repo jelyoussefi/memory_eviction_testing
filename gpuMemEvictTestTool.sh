@@ -1,6 +1,6 @@
 #!/bin/bash
 
-./gpuMemEvictTestTool -m $1 -t 50 &
+./gpuMemEvictTestTool -m $1 -t 60 &
 lwpPid=$!
 
 trap "kill ${lwpPid[@]}" SIGINT
