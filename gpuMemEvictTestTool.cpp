@@ -471,9 +471,9 @@ int main(int argc, char* argv[])
 	std::cout << "\n----------------------------------------------------------------------------" << std::endl;
 	std::cout << "\t"<< PRIO_TO_NAME() << "application "  << YELLOW << "started" << RESET << std::endl;
 	std::cout << "\t\t  Device Name         :\t" << getDeviceName(device_id) << std::endl;
-	std::cout << "\t\t  Total Mem. Size     :\t" << (float)totalMemSize/GB << " GB"<<std::endl;
-	std::cout << "\t\t  Required Mem. Size  :\t" << (float)requiredMemSize/GB << " GB" << std::endl;
-	std::cout << "\t\t  Available Mem. Size :\t" << (float)availabledMemSize/GB << " GB"<<std::endl;
+	std::cout << "\t\t  Total Mem. Size     :\t" << std::setprecision(2) << (float)totalMemSize/GB << " GB"<<std::endl;
+	std::cout << "\t\t  Required Mem. Size  :\t" << std::setprecision(2) << (float)requiredMemSize/GB << " GB" << std::endl;
+	std::cout << "\t\t  Available Mem. Size :\t" <<  std::setprecision(2) << (float)availabledMemSize/GB << " GB"<<std::endl;
 	std::cout << "\t\t  Pid                 :\t" << getpid() << std::endl;
 
 	std::cout << "    ------------------------------------------------------------------------" << std::endl;
