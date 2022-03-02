@@ -656,21 +656,24 @@ int main(int argc, char* argv[])
 
 	clReleaseCommandQueue(q);
 	clReleaseContext(context);
+	clFinish(q);
 
 	std::cout << "\n----------------------------------------------------------------------------" << std::endl;
 	std::cout << "\t"<< PRIO_TO_NAME() << "application "  << YELLOW << "ended" << RESET << std::endl;
 	std::cout << "----------------------------------------------------------------------------" << std::endl;
 
+	running = false;
+	thr.join();
+	file.close();
+
 	if ( slavePid != -1 ) {
 		std::cout << "\t" << PRIO_TO_NAME() << YELLOW << ": Resuming Process "  << RESET << slavePid << std::endl;
-//		record(-(float)(double)getAllocatedMemorySize()/GB);
+		record((float)(double)getAllocatedMemorySize()/GB);
 		kill(slavePid, SIGCONT);
 		std::cout << "    ------------------------------------------------------------------------" << std::endl;
 	}
 
-	running = false;
-	thr.join();
-	file.close();
+	
 
 	return 0;
 }
