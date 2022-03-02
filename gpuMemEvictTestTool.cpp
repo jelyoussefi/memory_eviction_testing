@@ -148,6 +148,24 @@ static cl_ulong getAllocatedMemorySize() {
 	return 0;
 }
 
+static cl_ulong getAvailableMemorySize() {
+	
+	std::ifstream input( "/sys/kernel/debug/dri/1/i915_gem_objects" );
+
+	for( std::string line; getline( input, line ); ) {
+		if ( line.find("local0") != std::string::npos ) {
+			std::regex seps("[ ,:]+");
+   			std::sregex_token_iterator rit(line.begin(), line.end(), seps, -1);
+    		auto tokens = std::vector<std::string>(rit, std::sregex_token_iterator());
+    		tokens.erase(std::remove_if(tokens.begin(), tokens.end(), [](std::string const& s){ return s.empty(); }), tokens.end());
+    		cl_ulong  availableMemSize;
+			std::istringstream(tokens[4]) >> std::hex >> availableMemSize;
+			return availableMemSize;
+	    }
+	}
+	return 0;
+}
+
 static cl_mem createBuffer(cl_context ctx, cl_mem_flags flags, size_t size, void *host_ptr, pid_t slavePid=-1) {
 	cl_int err;
 	cl_mem buf = clCreateBuffer(ctx, flags, size, host_ptr, &err);
@@ -414,15 +432,22 @@ int main(int argc, char* argv[])
 
 	const size_t buffSize = 512 * MB;
 	cl_ulong deviceMemSize = getDeviceMemorySize(device_id);
-	auto memSize = deviceMemSize * memRatio;
-	size_t nbOperations =  (memSize)/(3*buffSize);
+	auto requiredMemSize = deviceMemSize * memRatio;
+	auto availabledMemSize = getAvailableMemorySize();
+	if ( requiredMemSize < availabledMemSize ) {
+		slavePid = -1;	
+	}
+
+	size_t nbOperations =  (requiredMemSize)/(3*buffSize);
 
 	std::cout << "\n----------------------------------------------------------------------------" << std::endl;
 	std::cout << "\t"<< PRIO_TO_NAME() << "application "  << YELLOW << "started" << RESET << std::endl;
-	std::cout << "\t\t  Device Name 	:\t" << getDeviceName(device_id) << std::endl;
-	std::cout << "\t\t  Device Mem Size :\t" << (float)deviceMemSize/GB << " GB"<<std::endl;
-	std::cout << "\t\t  Pid         :\t" << getpid() << std::endl;
-	std::cout << "\t\t  Required Mem:\t" << (float)(memSize)/GB << " GB" << std::endl;
+	std::cout << "\t\t  Device Name         :\t" << getDeviceName(device_id) << std::endl;
+	std::cout << "\t\t  Device Mem. Size    :\t" << (float)deviceMemSize/GB << " GB"<<std::endl;
+	std::cout << "\t\t  Required Mem. Size  :\t" << (float)requiredMemSize/GB << " GB" << std::endl;
+	std::cout << "\t\t  Available Mem. Size :\t" << (float)availabledMemSize/GB << " GB"<<std::endl;
+	std::cout << "\t\t  Pid         	    :\t" << getpid() << std::endl;
+
 	std::cout << "    ------------------------------------------------------------------------" << std::endl;
 	if ( slavePid != -1 ) {
 			std::cout << "\t" << PRIO_TO_NAME() << YELLOW << ": Suspending Process "  << RESET << slavePid << std::endl;
