@@ -442,9 +442,9 @@ int main(int argc, char* argv[])
 	std::ofstream jsonFile;
 	jsonFile.open (configFilename);
 	if (jsonFile.is_open()) {
-		std::cout<<"{\n"<<"\t{\"totalMemSize\": "<<deviceMemSize<<",";
-		std::cout<<"\t{\"memSizeRatio\": "<<memRatio;
-		std::cout<<"\n}"<<std::endl;
+		jsonFile<<"{\n"<<"\t\"totalMemSize\": "<<deviceMemSize<<",";
+		jsonFile<<"\t\"memSizeRatio\": "<<memRatio;
+		jsonFile<<"\n}"<<std::endl;
 		jsonFile.close();
 	}	
 
