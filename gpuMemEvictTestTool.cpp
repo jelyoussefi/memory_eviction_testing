@@ -633,12 +633,12 @@ int main(int argc, char* argv[])
 
 	running = false;
 	thr.join();
-	file.close();
 
 	if (getMemorySizes(totalMemSize, availableMemSize)) {
 		record(file, (float)(totalMemSize-availableMemSize)/GB);
 	}
 
-	
+	file.close();
+
 	return 0;
 }

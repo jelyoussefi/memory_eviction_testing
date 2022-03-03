@@ -10,22 +10,19 @@ configHP = json.load(f)
 f.close()
 
 totalMemSizeGb = float(configLP["totalMemSize"])/(1024*1024*1024)
-lpMemSizeGb = totalMemSizeGb/float(configLP['memSizeRatio'])
+lpMemSizeGb = totalMemSizeGb*float(configLP['memSizeRatio'])
 
 xLP, yLP, xHP, yHP = [], [], [], []
  
-
 for row in open('./output/lowPrio.dat','r'):
     row = row.split()
     xLP.append(int(row[0]))
     yLP.append(float(row[1]))
 
-
 for row in open('./output/highPrio.dat','r'):
     row = row.split()
     xHP.append(int(row[0]))
     yHP.append(float(row[1]))
-
 
 bspl = splrep(xLP,yLP,s=1)
 yLP = splev(xLP,bspl)
@@ -71,7 +68,7 @@ if len(x2LP) > 0:
 	xResume.append(x2LP[0]);
 	yResume.append(lpMemSizeGb/2);
 	for i in range(len(y2LP)):
-		if y2LP[i] >= lpMemSizeGb:
+		if y2LP[i] >= (lpMemSizeGb*0.9):
 			xResume.append(x2LP[i]);
 			yResume.append(lpMemSizeGb/2);
 			break;
@@ -88,12 +85,16 @@ plt.plot(xHP, yHP, lw=lw, color='r', label='High Priority Process ({}%)'.format(
 plt.scatter(xLPLimit, yLPLimit, color='g')
 plt.scatter(xHPLimit, yHPLimit, color='r')
 plt.hlines(totalMemSizeGb, xLPLimit[0], xLPLimit[-1], color='b', linestyles='dashed', label='Total Memory size (GB)')
+if len(xResume) > 0:
+	plt.vlines(xResume[0], 0, totalMemSizeGb, lw=1, color='k', linestyles='dashed')
+	plt.vlines(xResume[1], 0, totalMemSizeGb, lw=1, color='k', linestyles='dashed')
+	plt.plot(xResume, yResume, color='c', marker='o', label='Resume time {} s'.format(format(xResume[1]-xResume[0], '.1f')))
 
 plt.legend(loc="lower right")
 plt.xlabel('Timestamp (s)')
 plt.ylabel('Allocated memory size (GB)')
 plt.xlim(xmin=0)
-#plt.ylim(ymin=0)
+plt.ylim(ymin=0)
 plt.title("Memory Eviction");
 plt.show()
 
