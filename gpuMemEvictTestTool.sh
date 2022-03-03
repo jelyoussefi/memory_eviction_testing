@@ -7,8 +7,11 @@ trap "kill ${lwpPid[@]}" SIGINT
 
 sleep 15
 
-./gpuMemEvictTestTool -m $2 -t 20 -p $lwpPid
+kill -STOP $lwpPid
 
+./gpuMemEvictTestTool -m $2 -t 20 -h
+
+kill -STOP $lwpPid
 
 wait $lwpPid
 

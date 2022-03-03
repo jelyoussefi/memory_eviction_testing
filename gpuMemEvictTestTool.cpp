@@ -128,9 +128,10 @@ static cl_ulong getDeviceMemorySize(cl_device_id device) {
 	return mem_size;
 }
 
-static cl_ulong getTotalMemorySize() {
+static bool getMemorySizes(cl_ulong& total, cl_ulong& available) {
 	
-	std::ifstream input( "/sys/kernel/debug/dri/1/i915_gem_objects" );
+	std::string gemObjectFilePath = "/sys/kernel/debug/dri/1/i915_gem_objects";
+	std::ifstream input( gemObjectFilePath );
 
 	for( std::string line; getline( input, line ); ) {
 		if ( line.find("local0") != std::string::npos ) {
@@ -138,53 +139,16 @@ static cl_ulong getTotalMemorySize() {
    			std::sregex_token_iterator rit(line.begin(), line.end(), seps, -1);
     		auto tokens = std::vector<std::string>(rit, std::sregex_token_iterator());
     		tokens.erase(std::remove_if(tokens.begin(), tokens.end(), [](std::string const& s){ return s.empty(); }), tokens.end());
-    		cl_ulong  totalMemSize;
-    		std::istringstream(tokens[2]) >> std::hex >> totalMemSize; 
-			return totalMemSize;
+    		std::istringstream(tokens[2]) >> std::hex >> total; 
+			std::istringstream(tokens[4]) >> std::hex >> available;
+			return true;
 	    }
 	}
-	return 0;
+	return false;
 }
 
-static cl_ulong getAllocatedMemorySize() {
-	
-	std::ifstream input( "/sys/kernel/debug/dri/1/i915_gem_objects" );
 
-	for( std::string line; getline( input, line ); ) {
-		if ( line.find("local0") != std::string::npos ) {
-			std::regex seps("[ ,:]+");
-   			std::sregex_token_iterator rit(line.begin(), line.end(), seps, -1);
-    		auto tokens = std::vector<std::string>(rit, std::sregex_token_iterator());
-    		tokens.erase(std::remove_if(tokens.begin(), tokens.end(), [](std::string const& s){ return s.empty(); }), tokens.end());
-    		cl_ulong  totalMemSize, availableMemSize;
-    		std::istringstream(tokens[2]) >> std::hex >> totalMemSize; 
-			std::istringstream(tokens[4]) >> std::hex >> availableMemSize;
-			auto  allocatedMemSize = (totalMemSize - availableMemSize);
-			return allocatedMemSize;
-	    }
-	}
-	return 0;
-}
-
-static cl_ulong getAvailableMemorySize() {
-	
-	std::ifstream input( "/sys/kernel/debug/dri/1/i915_gem_objects" );
-
-	for( std::string line; getline( input, line ); ) {
-		if ( line.find("local0") != std::string::npos ) {
-			std::regex seps("[ ,:]+");
-   			std::sregex_token_iterator rit(line.begin(), line.end(), seps, -1);
-    		auto tokens = std::vector<std::string>(rit, std::sregex_token_iterator());
-    		tokens.erase(std::remove_if(tokens.begin(), tokens.end(), [](std::string const& s){ return s.empty(); }), tokens.end());
-    		cl_ulong  availableMemSize;
-			std::istringstream(tokens[4]) >> std::hex >> availableMemSize;
-			return availableMemSize;
-	    }
-	}
-	return 0;
-}
-
-static cl_mem createBuffer(cl_context ctx, cl_mem_flags flags, size_t size, void *host_ptr, pid_t slavePid=-1) {
+static cl_mem createBuffer(cl_context ctx, cl_mem_flags flags, size_t size, void *host_ptr) {
 	cl_int err;
 	cl_mem buf = clCreateBuffer(ctx, flags, size, host_ptr, &err);
 
@@ -197,15 +161,18 @@ static cl_mem createBuffer(cl_context ctx, cl_mem_flags flags, size_t size, void
 }
 
 
-static void record(float memSize) {
+static void record(std::ofstream& of, float val) {
 	auto ts = duration_cast< milliseconds >(system_clock::now().time_since_epoch()).count();
-	file << std::fixed<<std::setprecision(2) << ts << "\t" << memSize << std::endl;
+	of << std::fixed<<std::setprecision(2) << ts << "\t" << val << std::endl;
 }
 
 static void activity(bool* running) {
 
 	while(*running) {
-		record((float)(double)getAllocatedMemorySize()/GB);
+		cl_ulong total, available;
+		if (getMemorySizes(total, available)) {
+			record(file, (float)(total-available)/GB);
+		}
 		usleep(100000);
 	}
 }
@@ -372,7 +339,7 @@ cl_int getFirstAvailableDevice(cl_device_type type_device, cl_device_id& device_
 		std::cout << "failed to query platforms. Error: " << std::to_string(err) << std::endl;
 		exit(1);
 	}
-	
+
 	/*obtain list of devices available on platform*/
 	for (i = 0; i < numPlatforms; i++) {
 		numDevices = 0;
@@ -404,10 +371,10 @@ int main(int argc, char* argv[])
 
 	float memRatio = 0.5f;
 	float duration = 60;
-	pid_t slavePid = -1;
+	size_t buffSize = 512 * MB;
 
 	int c;
-    while ((c = getopt(argc, argv, "m:t:p:")) != -1) {
+    while ((c = getopt(argc, argv, "m:t:hb:")) != -1) {
 
     	switch (c) {
             case 'm':
@@ -416,8 +383,11 @@ int main(int argc, char* argv[])
             case 't':
                 duration = std::stof(optarg);
             	break;
-            case 'p':
-                slavePid = atoi(optarg);
+            case 'h':
+                highPrio = true;
+            	break;
+            case 'b':
+                buffSize = std::stof(optarg)*MB;
             	break;
             default:           
                 std::cout << "Got unknown parse returns: " << c << std::endl; 
@@ -425,7 +395,6 @@ int main(int argc, char* argv[])
     	}
     }
 
-	highPrio = (slavePid != -1);
 	duration *= 1000; 
 	cl_int err;
 
@@ -448,20 +417,20 @@ int main(int argc, char* argv[])
 		return -1;
 	}
 
-	const size_t buffSize = 512 * MB;
-	cl_ulong totalMemSize = getTotalMemorySize();
-	auto requiredMemSize = totalMemSize * memRatio;
-	auto availabledMemSize = getAvailableMemorySize();
-	if ( requiredMemSize < availabledMemSize ) {
-		slavePid = -1;	
+	cl_ulong totalMemSize, availableMemSize;
+	if(!getMemorySizes(totalMemSize, availableMemSize)) {
+		return -1;
 	}
 
+	auto requiredMemSize = totalMemSize * memRatio;
+	
 	std::string configFilename = (highPrio ? "./output/highPrio.json" : "./output/lowPrio.json");
 	std::ofstream jsonFile;
 	jsonFile.open (configFilename);
 	if (jsonFile.is_open()) {
 		jsonFile<<"{\n"<<"\t\"totalMemSize\": "<<totalMemSize<<",";
-		jsonFile<<"\n\t\"memSizeRatio\": "<<memRatio;
+		jsonFile<<"\n\t\"memSizeRatio\": "<<memRatio<<",";
+		jsonFile<<"\n\t\"bufferSize\": "<<buffSize;
 		jsonFile<<"\n}"<<std::endl;
 		jsonFile.close();
 	}	
@@ -477,19 +446,13 @@ int main(int argc, char* argv[])
 	std::cout << "\t\t  Device Name         :\t" << getDeviceName(device_id) << std::endl;
 	std::cout << "\t\t  Total Mem. Size     :\t" << std::setprecision(2) << (float)totalMemSize/GB << " GB"<<std::endl;
 	std::cout << "\t\t  Required Mem. Size  :\t" << std::setprecision(2) << (float)requiredMemSize/GB << " GB" << std::endl;
-	std::cout << "\t\t  Available Mem. Size :\t" <<  std::setprecision(2) << (float)availabledMemSize/GB << " GB"<<std::endl;
+	std::cout << "\t\t  Available Mem. Size :\t" <<  std::setprecision(2) << (float)availableMemSize/GB << " GB"<<std::endl;
 	std::cout << "\t\t  Pid                 :\t" << getpid() << std::endl;
 
 	std::cout << "    ------------------------------------------------------------------------" << std::endl;
-	if ( slavePid != -1 ) {
-			std::cout << "\t" << PRIO_TO_NAME() << YELLOW << ": Suspending Process "  << RESET << slavePid << std::endl;
-			//record(-(float)(double)getAllocatedMemorySize()/GB);
-			kill(slavePid, SIGSTOP);
-			std::cout << "    ------------------------------------------------------------------------" << std::endl;
-		}
-
+	
 	printDeviceInfo(device_id);
-    
+    record(perfFile, 0);
     auto startTime = Clock::now();
     cl_context context = clCreateContext(NULL, 1, &device_id, NULL, NULL, &err);
 	if (err != CL_SUCCESS) {
@@ -500,7 +463,7 @@ int main(int argc, char* argv[])
 	cl_command_queue q;
 
 	if (highPrio) {
-		q = clCreateCommandQueue(context, device_id, CL_QUEUE_OUT_OF_ORDER_EXEC_MODE_ENABLE | CL_QUEUE_PROFILING_ENABLE, &err);
+		q = clCreateCommandQueue(context, device_id,  CL_QUEUE_PROFILING_ENABLE, &err);
 	}
 	else {
 	 	cl_command_queue_properties profilingQueueProperties[] = 
@@ -520,12 +483,10 @@ int main(int argc, char* argv[])
 		inBuff[j] = 1.0f;
 	}
 
-	
-    TIMER_START(creationTime);
-
 	std::cout << "\t\t" << PRIO_TO_NAME() << ": Creating buffers "  << std::endl;
 
 	std::vector<matrix_t> operations;
+    record(perfFile, 0);
 
 	for(int i = 0; i < nbOperations; i++) {
 	
@@ -546,9 +507,9 @@ int main(int argc, char* argv[])
 
 	}
 
-    //TIMER_STOP(creationTime, "creation time" );
     
     delete[] inBuff;
+    record(perfFile, 0);
 
 	std::cout << "\t\t" << PRIO_TO_NAME() << ": Building the kernels "  << std::endl;
 
@@ -587,6 +548,7 @@ int main(int argc, char* argv[])
 		free((void*)vadd_source);
 	}
 
+    record(perfFile, 0);
 
 	if(err == CL_SUCCESS) {
 		std::cout << "\t\t" << PRIO_TO_NAME() << ": Running the application "  << std::endl;
@@ -673,14 +635,10 @@ int main(int argc, char* argv[])
 	thr.join();
 	file.close();
 
-	if ( slavePid != -1 ) {
-		std::cout << "\t" << PRIO_TO_NAME() << YELLOW << ": Resuming Process "  << RESET << slavePid << std::endl;
-		kill(slavePid, SIGCONT);
-		record((float)(double)getAllocatedMemorySize()/GB);
-		std::cout << "    ------------------------------------------------------------------------" << std::endl;
+	if (getMemorySizes(totalMemSize, availableMemSize)) {
+		record(file, (float)(totalMemSize-availableMemSize)/GB);
 	}
 
 	
-
 	return 0;
 }
