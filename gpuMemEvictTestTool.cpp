@@ -466,6 +466,10 @@ int main(int argc, char* argv[])
 		jsonFile.close();
 	}	
 
+	std::string perfFilename = (highPrio ? "./output/highPrioPerf.dat" : "./output/lowPrioPerf.dat");
+	std::ofstream perfFile;
+	perfFile.open(perfFilename);
+
 	size_t nbOperations =  (requiredMemSize)/(3*buffSize);
 
 	std::cout << "\n----------------------------------------------------------------------------" << std::endl;
@@ -598,7 +602,7 @@ int main(int argc, char* argv[])
 				cl_event evt;
 				cl_ulong enqstart = 0;
 				cl_ulong enqend = 0;
-
+				auto perfStartTime = Clock::now();
 				memset(outBuff, 0, buffSize);
 				auto mat = operations[i];
 
@@ -625,6 +629,9 @@ int main(int argc, char* argv[])
 					std::cout << "\t\t" << PRIO_TO_NAME() << std::to_string(i) << " time " << std::to_string(cmdQEnQTime) << std::endl ;
 				}
 				clReleaseEvent(evt);
+
+				auto ts = duration_cast< milliseconds >(system_clock::now().time_since_epoch()).count();
+				perfFile << std::fixed<<std::setprecision(2) << ts << "\t" << timeElapsed(perfStartTime) << std::endl;
 
 				err = clEnqueueReadBuffer(q, mat.C, CL_TRUE, 0, buffSize, outBuff, 0, NULL, NULL);
 
