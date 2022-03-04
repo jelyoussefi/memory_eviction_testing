@@ -128,23 +128,29 @@ static cl_ulong getDeviceMemorySize(cl_device_id device) {
 	return mem_size;
 }
 
-static bool getMemorySizes(cl_ulong& total, cl_ulong& available) {
+static cl_ulong getAllocatedMemorySize() {
 	
-	std::string gemObjectFilePath = "/sys/kernel/debug/dri/1/i915_gem_objects";
-	std::ifstream input( gemObjectFilePath );
-
-	for( std::string line; getline( input, line ); ) {
-		if ( line.find("local0") != std::string::npos ) {
-			std::regex seps("[ ,:]+");
-   			std::sregex_token_iterator rit(line.begin(), line.end(), seps, -1);
-    		auto tokens = std::vector<std::string>(rit, std::sregex_token_iterator());
-    		tokens.erase(std::remove_if(tokens.begin(), tokens.end(), [](std::string const& s){ return s.empty(); }), tokens.end());
-    		std::istringstream(tokens[2]) >> std::hex >> total; 
-			std::istringstream(tokens[4]) >> std::hex >> available;
-			return true;
-	    }
+	cl_ulong allocatedMemSize = 0;
+	
+	for (int t=0; t<2; t++) {
+		std::stringstream input;
+		input << "/sys/kernel/debug/dri/" << t << "/i915_gem_objects";
+		for( std::string line; std::getline( input, line ); ) {
+			for (int l=0; l<2; l++) {
+				if ( line.find("local"+std::to_string(l)) != std::string::npos ) {
+					std::regex seps("[ ,:]+");
+		   			std::sregex_token_iterator rit(line.begin(), line.end(), seps, -1);
+		    		auto tokens = std::vector<std::string>(rit, std::sregex_token_iterator());
+		    		tokens.erase(std::remove_if(tokens.begin(), tokens.end(), [](std::string const& s){ return s.empty(); }), tokens.end());
+		    		cl_ulong totalMemSize, availableMemSize;
+		    		std::istringstream(tokens[2]) >> std::hex >> totalMemSize; 
+					std::istringstream(tokens[4]) >> std::hex >> availableMemSize;
+					allocatedMemSize += (totalMemSize - availableMemSize);
+			    }
+			}
+		}
 	}
-	return false;
+	return allocatedMemSize;
 }
 
 
@@ -169,10 +175,8 @@ static void record(std::ofstream& of, float val) {
 static void activity(bool* running) {
 
 	while(*running) {
-		cl_ulong total, available;
-		if (getMemorySizes(total, available)) {
-			record(file, (float)(total-available)/GB);
-		}
+		std::cout<<"========= "<<(float)getAllocatedMemorySize()/GB<<std::endl;
+		record(file, (float)getAllocatedMemorySize()/GB);
 		usleep(100000);
 	}
 }
@@ -417,13 +421,11 @@ int main(int argc, char* argv[])
 		return -1;
 	}
 
-	cl_ulong totalMemSize, availableMemSize;
-	if(!getMemorySizes(totalMemSize, availableMemSize)) {
-		return -1;
-	}
-
-	auto requiredMemSize = totalMemSize * memRatio;
 	
+	auto totalMemSize = getDeviceMemorySize(device_id);
+	auto requiredMemSize = totalMemSize * memRatio;
+	auto availableMemSize = totalMemSize - getAllocatedMemorySize();
+
 	std::string configFilename = (highPrio ? "./output/highPrio.json" : "./output/lowPrio.json");
 	std::ofstream jsonFile;
 	jsonFile.open (configFilename);
@@ -486,7 +488,6 @@ int main(int argc, char* argv[])
 	std::cout << "\t\t" << PRIO_TO_NAME() << ": Creating buffers "  << std::endl;
 
 	std::vector<matrix_t> operations;
-    record(perfFile, 0);
 
 	for(int i = 0; i < nbOperations; i++) {
 	
@@ -509,7 +510,6 @@ int main(int argc, char* argv[])
 
     
     delete[] inBuff;
-    record(perfFile, 0);
 
 	std::cout << "\t\t" << PRIO_TO_NAME() << ": Building the kernels "  << std::endl;
 
@@ -634,9 +634,7 @@ int main(int argc, char* argv[])
 	running = false;
 	thr.join();
 
-	if (getMemorySizes(totalMemSize, availableMemSize)) {
-		record(file, (float)(totalMemSize-availableMemSize)/GB);
-	}
+	record(file, (float)getAllocatedMemorySize()/GB);
 
 	file.close();
 

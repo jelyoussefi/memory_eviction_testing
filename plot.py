@@ -87,8 +87,8 @@ plt.scatter(xHPLimit, yHPLimit, color='r')
 plt.hlines(totalMemSizeGb, xLPLimit[0], xLPLimit[-1], color='b', linestyles='dashed', label='Total Memory size (GB)')
 if len(xResume) > 0:
 	plt.vlines(xResume[0], 0, totalMemSizeGb, lw=1, color='k', linestyles='dashed')
-	plt.vlines(xResume[1], 0, totalMemSizeGb, lw=1, color='k', linestyles='dashed')
-	plt.plot(xResume, yResume, color='c', marker='o', label='Resume time {} s'.format(format(xResume[1]-xResume[0], '.1f')))
+	#plt.vlines(xResume[1], 0, totalMemSizeGb, lw=1, color='k', linestyles='dashed')
+	#plt.plot(xResume, yResume, color='c', marker='o', label='Resume time {} s'.format(format(xResume[1]-xResume[0], '.1f')))
 
 plt.legend(loc="lower right")
 plt.xlabel('Timestamp (s)')
