@@ -175,7 +175,6 @@ static void record(std::ofstream& of, float val) {
 static void activity(bool* running) {
 
 	while(*running) {
-		std::cout<<"========= "<<(float)getAllocatedMemorySize()/GB<<std::endl;
 		record(file, (float)getAllocatedMemorySize()/GB);
 		usleep(100000);
 	}
