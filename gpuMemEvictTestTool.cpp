@@ -135,21 +135,18 @@ static cl_ulong getAllocatedMemorySize() {
 	for (int t=0; t<2; t++) {
 		std::stringstream input;
 		input << "/sys/kernel/debug/dri/" << t << "/i915_gem_objects";
-		std::cout<<"----------- Input"<<input.str()<<std::endl;
 		for( std::string line; std::getline( input, line ); ) {
-			for (int l=0; l<2; l++) {
-				std::cout<<"\t----------- local "<<"local"+std::to_string(l).str()<<std::endl;
-				if ( line.find("local"+std::to_string(l)) != std::string::npos ) {
-					std::regex seps("[ ,:]+");
-		   			std::sregex_token_iterator rit(line.begin(), line.end(), seps, -1);
-		    		auto tokens = std::vector<std::string>(rit, std::sregex_token_iterator());
-		    		tokens.erase(std::remove_if(tokens.begin(), tokens.end(), [](std::string const& s){ return s.empty(); }), tokens.end());
-		    		cl_ulong totalMemSize, availableMemSize;
-		    		std::istringstream(tokens[2]) >> std::hex >> totalMemSize; 
-					std::istringstream(tokens[4]) >> std::hex >> availableMemSize;
-					allocatedMemSize += (totalMemSize - availableMemSize);
-			    }
-			}
+			if ( line.find("local") != std::string::npos )  {
+				std::regex seps("[ ,:]+");
+	   			std::sregex_token_iterator rit(line.begin(), line.end(), seps, -1);
+	    		auto tokens = std::vector<std::string>(rit, std::sregex_token_iterator());
+	    		tokens.erase(std::remove_if(tokens.begin(), tokens.end(), [](std::string const& s){ return s.empty(); }), tokens.end());
+	    		cl_ulong totalMemSize, availableMemSize;
+	    		std::istringstream(tokens[2]) >> std::hex >> totalMemSize; 
+				std::istringstream(tokens[4]) >> std::hex >> availableMemSize;
+				
+				allocatedMemSize += (totalMemSize - availableMemSize);
+		    }
 		}
 	}
 	return allocatedMemSize;
