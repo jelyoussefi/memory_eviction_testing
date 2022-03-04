@@ -135,8 +135,10 @@ static cl_ulong getAllocatedMemorySize() {
 	for (int t=0; t<2; t++) {
 		std::stringstream input;
 		input << "/sys/kernel/debug/dri/" << t << "/i915_gem_objects";
+		std::cout<<"----------- Input"<<input.str()<<std::endl;
 		for( std::string line; std::getline( input, line ); ) {
 			for (int l=0; l<2; l++) {
+				std::cout<<"\t----------- local "<<"local"+std::to_string(l).str()<<std::endl;
 				if ( line.find("local"+std::to_string(l)) != std::string::npos ) {
 					std::regex seps("[ ,:]+");
 		   			std::sregex_token_iterator rit(line.begin(), line.end(), seps, -1);
