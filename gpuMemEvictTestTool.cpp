@@ -132,10 +132,11 @@ static cl_ulong getAllocatedMemorySize() {
 	
 	cl_ulong allocatedMemSize = 0;
 	
-	for (int t=0; t<2; t++) {
-		std::stringstream input;
-		input << "/sys/kernel/debug/dri/" << t << "/i915_gem_objects";
-		for( std::string line; std::getline( input, line ); ) {
+	for (int t=1; t<=2; t++) {
+		std::stringstream path;
+		path << "/sys/kernel/debug/dri/" << t << "/i915_gem_objects";
+		std::ifstream infile(path.str());
+		for( std::string line; std::getline( infile, line ); ) {
 			if ( line.find("local") != std::string::npos )  {
 				std::regex seps("[ ,:]+");
 	   			std::sregex_token_iterator rit(line.begin(), line.end(), seps, -1);
@@ -144,7 +145,7 @@ static cl_ulong getAllocatedMemorySize() {
 	    		cl_ulong totalMemSize, availableMemSize;
 	    		std::istringstream(tokens[2]) >> std::hex >> totalMemSize; 
 				std::istringstream(tokens[4]) >> std::hex >> availableMemSize;
-				
+
 				allocatedMemSize += (totalMemSize - availableMemSize);
 		    }
 		}
