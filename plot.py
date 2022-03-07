@@ -3,100 +3,96 @@ import matplotlib.pyplot as plt
 from scipy.interpolate import splrep, splev
 import json
 
-f = open('./output/lowPrio.json')
-configLP = json.load(f)
-f = open('./output/highPrio.json')
-configHP = json.load(f)
-f.close()
 
-totalMemSizeGb = float(configLP["totalMemSize"])/(1024*1024*1024)
-lpMemSizeGb = totalMemSizeGb*float(configLP['memSizeRatio'])
+def plotMem(plotter, memFile, confFile, color, label, x0=None):
+	f = open(confFile)
+	config = json.load(f)
+	f.close()
 
-xLP, yLP, xHP, yHP = [], [], [], []
- 
-for row in open('./output/lowPrio.dat','r'):
-    row = row.split()
-    xLP.append(int(row[0]))
-    yLP.append(float(row[1]))
+	totalMemSizeGb = float(config["totalMemSize"])/(1024*1024*1024)
+	memSizeGb = totalMemSizeGb*float(config['memSizeRatio'])
+	memRatio = " ({}%) ".format(int(config['memSizeRatio']*100))
 
-for row in open('./output/highPrio.dat','r'):
-    row = row.split()
-    xHP.append(int(row[0]))
-    yHP.append(float(row[1]))
+	x, y = [], []
+	for row in open(memFile):
+		row = row.split()
+		x.append(int(row[0]))
+		y.append(float(row[1]))
 
-bspl = splrep(xLP,yLP,s=1)
-yLP = splev(xLP,bspl)
+	bspl = splrep(x, y, s=2)
+	y = splev(x, bspl)
 
-bspl = splrep(xHP,yHP,s=1)
-yHP = splev(xHP,bspl)
-
-x0 = min(xLP + xHP)
-
-splitIdx = -1
-
-for i in range(0, len(xLP)-1)  :
-	if ( xLP[i+1] - xLP[i] ) > 10000:
-		splitIdx = i;
-		break;
-		
-x1LP, y1LP, x2LP, y2LP = [], [], [], []
-
-if splitIdx != -1:
-	x1LP = xLP[:splitIdx]
-	y1LP = yLP[:splitIdx]
-	x2LP = xLP[splitIdx+1:]
-	y2LP = yLP[splitIdx+1:]
-	xLPLimit = [ x1LP[0], x1LP[-1], x2LP[0], x2LP[-1] ]
-	yLPLimit = [ y1LP[0], y1LP[-1], y2LP[0], y2LP[-1] ]
-else:
-	x1LP = xLP
-	y1LP = yLP
-	xLPLimit = [ x1LP[0], x1LP[-1] ]
-	yLPLimit = [ y1LP[0], y1LP[-1] ]
-
-
-
-xHPLimit = [ xHP[0], xHP[-1] ]
-yHPLimit = [ yHP[0], yHP[-1] ]
-
-	
-x1LP[:] = [float(x - x0)/1000 for x in x1LP]
-xHP[:] = [float(x - x0)/1000 for x in xHP]
-xResume, yResume = [], [] 
-if len(x2LP) > 0:
-	x2LP[:] = [float(x - x0)/1000 for x in x2LP]
-	xResume.append(x2LP[0]);
-	yResume.append(lpMemSizeGb/2);
-	for i in range(len(y2LP)):
-		if y2LP[i] >= (lpMemSizeGb*0.9):
-			xResume.append(x2LP[i]);
-			yResume.append(lpMemSizeGb/2);
+	suspendIdx = None
+	for i in range(0, len(x)-1)  :
+		if ( x[i+1] - x[i] ) > 1000:
+			suspendIdx = i;
 			break;
+	if x0 == None:
+		x0 = x[0];
+	x = [float(v-x0)/1000 for v in x]
+
+	resumeIdx = None
+	if suspendIdx != None:
+		for i in range(suspendIdx+1, len(x)):
+			if y[i] >= (memSizeGb):
+				resumeIdx = i
+				break;
+
+	plotter.plot(x[:suspendIdx], y[:suspendIdx], lw=2, color=color, marker='o', label=label+memRatio, markevery=[0,-1])
+	if suspendIdx != None:
+		plotter.plot(x[suspendIdx+1:], y[suspendIdx+1:],  lw=2, color=color, marker='o', markevery=[0,-1])
+	if resumeIdx != None:
+		plt.vlines(x[suspendIdx+1], y[suspendIdx+1], memSizeGb, lw=1, color='k', linestyles='dashed')
+		plt.vlines(x[resumeIdx], y[suspendIdx+1], memSizeGb, lw=1, color='k', linestyles='dashed')
+		resumeMemSize = y[suspendIdx+1] + (memSizeGb-y[suspendIdx+1] )/2
+		plt.plot([x[suspendIdx+1], x[resumeIdx]], [resumeMemSize, resumeMemSize],
+			     color='c', marker='.', label='Resume time {} s'.format(format(x[resumeIdx]-x[suspendIdx+1], '.1f')))
+
+	return x0;
+
+def plotPerf(plotter, perfFile, confFile, color, x0, label=None):
+	f = open(confFile)
+	config = json.load(f)
+	f.close()
+
+	totalMemSizeGb = float(config["totalMemSize"])/(1024*1024*1024)
+	memSizeGb = totalMemSizeGb*float(config['memSizeRatio'])
+	memRatio = " ({}%) ".format(int(config['memSizeRatio']*100))
+
+	x, y = [], []
+	for row in open(perfFile):
+		row = row.split()
+		x.append(int(row[0]))
+		y.append(float(row[1]))
+
+	x = [float(v-x0)/1000 for v in x]
+
+	plotter.bar(x, y, width=0.1, color=color, alpha=0.2, label=label)
+	plotter.fill([x[0],x[1],x[1],x[0],x[0]],[0, 0,20,20,0], color=color, alpha=0.5)
+	plt.text(x[0] + (x[1]-x[0])/2, 10, "Init", color='w', horizontalalignment='center', verticalalignment='center', wrap=False )
+
+		
+if __name__ == "__main__":
+	fig,axMem = plt.subplots()
+	x0 = plotMem(axMem, './output/lowPrio.dat', './output/lowPrio.json', 'g', "LP Allocated Mem.")
+	plotMem(axMem, './output/highPrio.dat', './output/highPrio.json', 'r', "HP Allocated Mem.", x0=x0)
+	axMem.set_ylabel('Allocated memory size (GB)')
+	axMem.set_xlabel('Timestamp (s)')
+	axMem.set_ylim(ymin=0)
+
+	axPerf = axMem.twinx()
+	plotPerf(axPerf, './output/lowPrioPerf.dat', './output/lowPrio.json', 'g', x0=x0, label="LP Processing time")
+	plotPerf(axPerf, './output/highPrioPerf.dat', './output/highPrio.json', 'r', x0=x0, label="HP Processing time")
+	#axPerf.set_yscale('log')
+	axPerf.set_ylim(ymin=0)
+	axPerf.set_ylabel('Processing Time (ms)')
+
+	plt.title("Memory Eviction");
+	lines, labels = axMem.get_legend_handles_labels()
+	lines2, labels2 = axPerf.get_legend_handles_labels()
+	axMem.legend(lines + lines2, labels + labels2, loc=0)
 	
-xLPLimit[:] = [float(x - x0)/1000 for x in xLPLimit]
-xHPLimit[:] = [float(x - x0)/1000 for x in xHPLimit]
-
-lw=2.5
-
-plt.plot(x1LP, y1LP, lw=lw, color='g', label='Low Priority Process ({}%)'.format(int(configLP['memSizeRatio']*100)))
-if len(x2LP) > 0:
-	plt.plot(x2LP, y2LP, lw=lw, color='g')
-plt.plot(xHP, yHP, lw=lw, color='r', label='High Priority Process ({}%)'.format(int(configHP['memSizeRatio']*100)))
-plt.scatter(xLPLimit, yLPLimit, color='g')
-plt.scatter(xHPLimit, yHPLimit, color='r')
-plt.hlines(totalMemSizeGb, xLPLimit[0], xLPLimit[-1], color='b', linestyles='dashed', label='Total Memory size (GB)')
-if len(xResume) > 0:
-	plt.vlines(xResume[0], 0, totalMemSizeGb, lw=1, color='k', linestyles='dashed')
-	#plt.vlines(xResume[1], 0, totalMemSizeGb, lw=1, color='k', linestyles='dashed')
-	#plt.plot(xResume, yResume, color='c', marker='o', label='Resume time {} s'.format(format(xResume[1]-xResume[0], '.1f')))
-
-plt.legend(loc="lower right")
-plt.xlabel('Timestamp (s)')
-plt.ylabel('Allocated memory size (GB)')
-plt.xlim(xmin=0)
-plt.ylim(ymin=0)
-plt.title("Memory Eviction");
-plt.show()
+	plt.show()
 
 
 

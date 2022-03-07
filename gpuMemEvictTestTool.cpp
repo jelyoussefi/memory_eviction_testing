@@ -128,9 +128,12 @@ static cl_ulong getDeviceMemorySize(cl_device_id device) {
 	return mem_size;
 }
 
-static cl_ulong getAllocatedMemorySize() {
+static cl_ulong getAllocatedMemorySize(cl_ulong* total=NULL) {
 	
 	cl_ulong allocatedMemSize = 0;
+	if (total) {
+		*total = 0;
+	}
 	
 	for (int t=1; t<=2; t++) {
 		std::stringstream path;
@@ -147,6 +150,9 @@ static cl_ulong getAllocatedMemorySize() {
 				std::istringstream(tokens[4]) >> std::hex >> availableMemSize;
 
 				allocatedMemSize += (totalMemSize - availableMemSize);
+				if (total) {
+					*total += totalMemSize;
+				}
 		    }
 		}
 	}
@@ -421,9 +427,10 @@ int main(int argc, char* argv[])
 	}
 
 	
-	auto totalMemSize = getDeviceMemorySize(device_id);
+	cl_ulong totalMemSize ;
+	auto allocatedMemSize = getAllocatedMemorySize(&totalMemSize);
 	auto requiredMemSize = totalMemSize * memRatio;
-	auto availableMemSize = totalMemSize - getAllocatedMemorySize();
+	auto availableMemSize = totalMemSize - allocatedMemSize;
 
 	std::string configFilename = (highPrio ? "./output/highPrio.json" : "./output/lowPrio.json");
 	std::ofstream jsonFile;
