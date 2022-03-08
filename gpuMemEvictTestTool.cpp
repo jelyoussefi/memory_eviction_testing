@@ -421,7 +421,7 @@ int main(int argc, char* argv[])
 	}
 
 	
-	auto totalMemSize  = getDeviceMemorySize();
+	auto totalMemSize  = getDeviceMemorySize(device_id);
 	auto allocatedMemSize = getAllocatedMemorySize();
 	auto requiredMemSize = totalMemSize * memRatio;
 	auto availableMemSize = totalMemSize - allocatedMemSize;
