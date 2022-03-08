@@ -128,12 +128,9 @@ static cl_ulong getDeviceMemorySize(cl_device_id device) {
 	return mem_size;
 }
 
-static cl_ulong getAllocatedMemorySize(cl_ulong* total=NULL) {
+static cl_ulong getAllocatedMemorySize() {
 	
 	cl_ulong allocatedMemSize = 0;
-	if (total) {
-		*total = 0;
-	}
 	
 	for (int t=1; t<=2; t++) {
 		std::stringstream path;
@@ -150,9 +147,6 @@ static cl_ulong getAllocatedMemorySize(cl_ulong* total=NULL) {
 				std::istringstream(tokens[4]) >> std::hex >> availableMemSize;
 
 				allocatedMemSize += (totalMemSize - availableMemSize);
-				if (total) {
-					*total += totalMemSize;
-				}
 		    }
 		}
 	}
@@ -427,8 +421,8 @@ int main(int argc, char* argv[])
 	}
 
 	
-	cl_ulong totalMemSize ;
-	auto allocatedMemSize = getAllocatedMemorySize(&totalMemSize);
+	auto totalMemSize  = getDeviceMemorySize();
+	auto allocatedMemSize = getAllocatedMemorySize();
 	auto requiredMemSize = totalMemSize * memRatio;
 	auto availableMemSize = totalMemSize - allocatedMemSize;
 
