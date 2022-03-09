@@ -44,9 +44,12 @@ def plotMem(plotter, memFile, confFile, color, label, x0=None):
 	if resumeIdx != None:
 		plt.vlines(x[suspendIdx+1], y[suspendIdx+1], memSizeGb, lw=1, color='k', linestyles='dashed')
 		plt.vlines(x[resumeIdx], y[suspendIdx+1], memSizeGb, lw=1, color='k', linestyles='dashed')
-		resumeMemSize = y[suspendIdx+1] + (memSizeGb-y[suspendIdx+1] )/2
-		plt.plot([x[suspendIdx+1], x[resumeIdx]], [resumeMemSize, resumeMemSize],
-			     color='c', marker='.', label='Resume time {} s'.format(format(x[resumeIdx]-x[suspendIdx+1], '.1f')))
+		yResumeMemSize = y[suspendIdx+1] + (memSizeGb-y[suspendIdx+1] )/2
+		memResumeTime = x[resumeIdx]-x[suspendIdx+1]
+		memResumeBw = (y[resumeIdx] - y[suspendIdx+1])/memResumeTime;
+		plt.plot([x[suspendIdx+1], x[resumeIdx]], [yResumeMemSize, yResumeMemSize],
+			     color='c', marker='.', label='Resume time {} s ({} GB/s)'.
+			     format(format(x[resumeIdx]-x[suspendIdx+1], '.1f'), format(memResumeBw, '.1f')))
 
 	return x0;
 
@@ -83,14 +86,13 @@ if __name__ == "__main__":
 	axPerf = axMem.twinx()
 	plotPerf(axPerf, './output/lowPrioPerf.dat', './output/lowPrio.json', 'g', x0=x0, label="LP Processing time")
 	plotPerf(axPerf, './output/highPrioPerf.dat', './output/highPrio.json', 'r', x0=x0, label="HP Processing time")
-	#axPerf.set_yscale('log')
 	axPerf.set_ylim(ymin=0)
 	axPerf.set_ylabel('Processing Time (ms)')
 
 	plt.title("Memory Eviction");
 	lines, labels = axMem.get_legend_handles_labels()
 	lines2, labels2 = axPerf.get_legend_handles_labels()
-	axMem.legend(lines + lines2, labels + labels2, loc=0)
+	axMem.legend(lines + lines2, labels + labels2, loc='upper right')
 	
 	plt.show()
 
