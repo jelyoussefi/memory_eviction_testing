@@ -34,7 +34,7 @@ def plotMem(plotter, memFile, confFile, color, label, x0=None):
 	resumeIdx = None
 	if suspendIdx != None:
 		for i in range(suspendIdx+1, len(x)):
-			if y[i] >= (memSizeGb):
+			if y[i] >= (memSizeGb)*0.9:
 				resumeIdx = i
 				break;
 
