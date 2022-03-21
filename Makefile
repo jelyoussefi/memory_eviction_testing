@@ -9,7 +9,7 @@ ONEAPI_ROOT ?= /opt/intel/oneapi
 export TERM=xterm
 
 CXX_COMPILER=dpcpp
-CXXFLAGS=-g -Wno-c++20-extensions -Wno-deprecated-declarations
+CXXFLAGS=-g -Wno-c++20-extensions -Wno-deprecated-declarations -Wno-return-type
 LDFLAGS=-lOpenCL -lpthread
 
 LP_MEM_RATIO ?= 0.5
@@ -20,7 +20,7 @@ HP_MEM_RATIO ?= 0.8
 # Targets
 #----------------------------------------------------------------------------------------------------------------------
 default: run 
-.PHONY: gpuMemEvictTestTool
+.PHONY: gpuMemEvictTestTool kernelCompiler
 
 	
 gpuMemEvictTestTool:
@@ -28,7 +28,12 @@ gpuMemEvictTestTool:
 	@bash -c 'source ${ONEAPI_ROOT}/setvars.sh --force &> /dev/null && \
 		$(CXX_COMPILER) $(CXXFLAGS) $@.cpp -o $@ $(LDFLAGS)'
 
-build: gpuMemEvictTestTool
+kernelCompiler:
+	@$(call msg,Building the kernel compiler   ...)
+	@bash -c 'source ${ONEAPI_ROOT}/setvars.sh --force &> /dev/null && \
+		$(CXX_COMPILER) $(CXXFLAGS) $@.cpp -o $@ $(LDFLAGS)'
+
+build: kernelCompiler gpuMemEvictTestTool
 
 run: gpuMemEvictTestTool
 	@$(call msg,Running the gpuMemEvictTestTool application ...)
@@ -39,7 +44,7 @@ run: gpuMemEvictTestTool
 show:
 	@python3  plot.py
 clean:
-	@rm -rf gpuMemEvictTestTool 
+	@rm -rf gpuMemEvictTestTool kernelCompiler
 
 #----------------------------------------------------------------------------------------------------------------------
 # helper functions

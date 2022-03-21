@@ -1,4 +1,4 @@
-
+import os
 import matplotlib.pyplot as plt
 from scipy.interpolate import splrep, splev
 import json
@@ -34,7 +34,7 @@ def plotMem(plotter, memFile, confFile, color, label, x0=None):
 	resumeIdx = None
 	if suspendIdx != None:
 		for i in range(suspendIdx+1, len(x)):
-			if y[i] >= (memSizeGb)*0.9:
+			if y[i] >= (memSizeGb)*1:
 				resumeIdx = i
 				break;
 
@@ -71,21 +71,23 @@ def plotPerf(plotter, perfFile, confFile, color, x0, label=None):
 	x = [float(v-x0)/1000 for v in x]
 
 	plotter.bar(x, y, width=0.1, color=color, alpha=0.2, label=label)
-	plotter.fill([x[0],x[1],x[1],x[0],x[0]],[0, 0,20,20,0], color=color, alpha=0.5)
-	plt.text(x[0] + (x[1]-x[0])/2, 10, "Init", color='w', horizontalalignment='center', verticalalignment='center', wrap=False )
+	plotter.fill([x[0],x[1],x[1],x[0],x[0]],[0, 0,1,1,0], color=color, alpha=0.5)
+	plt.text(x[0] + (x[1]-x[0])/2, 0.5, "Init", color='k', horizontalalignment='center', verticalalignment='center', wrap=False )
 
 		
 if __name__ == "__main__":
 	fig,axMem = plt.subplots()
 	x0 = plotMem(axMem, './output/lowPrio.dat', './output/lowPrio.json', 'g', "LP Allocated Mem.")
-	plotMem(axMem, './output/highPrio.dat', './output/highPrio.json', 'r', "HP Allocated Mem.", x0=x0)
+	if os.path.exists("./output/highPrio.dat"):
+		plotMem(axMem, './output/highPrio.dat', './output/highPrio.json', 'r', "HP Allocated Mem.", x0=x0)
 	axMem.set_ylabel('Allocated memory size (GB)')
 	axMem.set_xlabel('Timestamp (s)')
 	axMem.set_ylim(ymin=0)
 
 	axPerf = axMem.twinx()
 	plotPerf(axPerf, './output/lowPrioPerf.dat', './output/lowPrio.json', 'g', x0=x0, label="LP Processing time")
-	plotPerf(axPerf, './output/highPrioPerf.dat', './output/highPrio.json', 'r', x0=x0, label="HP Processing time")
+	if os.path.exists("./output/highPrio.dat"):
+		plotPerf(axPerf, './output/highPrioPerf.dat', './output/highPrio.json', 'r', x0=x0, label="HP Processing time")
 	axPerf.set_ylim(ymin=0)
 	axPerf.set_ylabel('Processing Time (ms)')
 

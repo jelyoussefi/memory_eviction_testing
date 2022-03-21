@@ -12,6 +12,7 @@
 #include <iostream>
 #include <fstream>
 #include <sstream> 
+#include <map>
 #include <iterator>
 #include <numeric>
 #include <algorithm>
@@ -19,6 +20,9 @@
 #include <chrono>
 #include <thread>
 #include <regex>
+#include <thread>
+#include <mutex>
+#include <condition_variable>
 
 using namespace std::chrono;
 using Clock = std::chrono::high_resolution_clock;
@@ -34,6 +38,7 @@ using Clock = std::chrono::high_resolution_clock;
 
 #define HTYPE float
 #define MAX_SOURCE_SIZE 100000
+#define MAX_BINARY_SIZE 100000
 
 #define MAX_VECTOR_SIZE  128*1024*1024L // 128MB memory size in byte
 
@@ -79,6 +84,7 @@ typedef struct {
 static bool highPrio = false;
 static int debug_level = 1;
 static std::ofstream file;
+static std::map<uint64_t, float> activityMap;
 
 //----------------------------------------------------------------------------------------------------------------------
 // Local functions
@@ -167,17 +173,32 @@ static cl_mem createBuffer(cl_context ctx, cl_mem_flags flags, size_t size, void
 }
 
 
-static void record(std::ofstream& of, float val) {
-	auto ts = duration_cast< milliseconds >(system_clock::now().time_since_epoch()).count();
-	of << std::fixed<<std::setprecision(2) << ts << "\t" << val << std::endl;
+static void record(std::string filename, std::map<uint64_t, float>& map) {
+	std::ofstream of;
+	of.open (filename);
+	if ( of.is_open() ) {
+		for (auto const& x : map) {
+			of << std::fixed<<std::setprecision(2) << x.first << "\t" << x.second << std::endl;
+		}
+		of.close();
+	}
 }
+
+static void add(std::map<uint64_t, float> &map, float val) {
+	auto ts = duration_cast< milliseconds >(system_clock::now().time_since_epoch()).count();
+	map.insert(std::make_pair(ts, val));
+}
+
 
 static void activity(bool* running) {
 
+	std::string filename = (highPrio ? "./output/highPrio.dat" : "./output/lowPrio.dat");
+
 	while(*running) {
-		record(file, (float)getAllocatedMemorySize()/GB);
+		add(activityMap, (float)getAllocatedMemorySize()/GB);
 		usleep(100000);
 	}
+
 }
 
 static void printDeviceInfo(cl_device_id device) {
@@ -401,13 +422,8 @@ int main(int argc, char* argv[])
 	duration *= 1000; 
 	cl_int err;
 
-	std::string filename = (highPrio ? "./output/highPrio.dat" : "./output/lowPrio.dat");
-
-	file.open (filename);
-	if (!file.is_open()) {
-		std::cout<<RED<<"Cannot open file "<<filename<<RESET<<std::endl;
-		exit(0);
-	}
+    std::mutex mutex;
+    std::condition_variable cv;
 
 	bool running = true;
 	std::thread thr(activity, &running);
@@ -436,11 +452,7 @@ int main(int argc, char* argv[])
 		jsonFile<<"\n}"<<std::endl;
 		jsonFile.close();
 	}	
-
-	std::string perfFilename = (highPrio ? "./output/highPrioPerf.dat" : "./output/lowPrioPerf.dat");
-	std::ofstream perfFile;
-	perfFile.open(perfFilename);
-
+	
 	size_t nbOperations =  (requiredMemSize)/(3*buffSize);
 
 	std::cout << "\n----------------------------------------------------------------------------" << std::endl;
@@ -454,13 +466,17 @@ int main(int argc, char* argv[])
 	std::cout << "    ------------------------------------------------------------------------" << std::endl;
 	
 	printDeviceInfo(device_id);
-    record(perfFile, 0);
+
+	std::map<uint64_t, float> perfMap;
+    add(perfMap, 0);
+    
     auto startTime = Clock::now();
     cl_context context = clCreateContext(NULL, 1, &device_id, NULL, NULL, &err);
 	if (err != CL_SUCCESS) {
 		std::cout << "failed to init context. Error: " << std::to_string(err) << std::endl;
 		return -1;
 	}
+
 
 	cl_command_queue q;
 
@@ -487,26 +503,33 @@ int main(int argc, char* argv[])
 
 	std::cout << "\t\t" << PRIO_TO_NAME() << ": Creating buffers "  << std::endl;
 
-	std::vector<matrix_t> operations;
+	std::vector<matrix_t*> operations = {nullptr};
 
 	for(int i = 0; i < nbOperations; i++) {
-	
-		matrix_t mat;
-		mat.A  = createBuffer(context, CL_MEM_READ_ONLY  | CL_MEM_COPY_HOST_PTR, buffSize, inBuff); 
-		mat.B  = createBuffer(context, CL_MEM_READ_ONLY  | CL_MEM_COPY_HOST_PTR, buffSize, inBuff); 
-		mat.C  = createBuffer(context, CL_MEM_WRITE_ONLY | CL_MEM_ALLOC_HOST_PTR, buffSize, NULL); 
-
-		err = clFinish(q);
-		if (err != CL_SUCCESS) {
-			std::cout << "failed to finish unmap buff " << std::endl;
-			return -1;
-		}
-
-		assert(mat.A != nullptr && mat.B != nullptr && mat.C != nullptr);
-	
-		operations.push_back(mat);
-
+		operations.push_back(nullptr);
 	}
+
+	std::thread allocWorker([&] {
+
+		for(int i = 0; i < operations.size(); i++) {
+			matrix_t* mat = new matrix_t();
+			mat->A  = createBuffer(context, CL_MEM_READ_ONLY  | CL_MEM_COPY_HOST_PTR, buffSize, inBuff); 
+			mat->B  = createBuffer(context, CL_MEM_READ_ONLY  | CL_MEM_COPY_HOST_PTR, buffSize, inBuff); 
+			mat->C  = createBuffer(context, CL_MEM_WRITE_ONLY | CL_MEM_ALLOC_HOST_PTR, buffSize, NULL); 
+
+			err = clFinish(q);
+			if (err != CL_SUCCESS) {
+				std::cout << "failed to finish unmap buff " << std::endl;
+				return -1;
+			}
+
+			assert(mat->A != nullptr && mat->B != nullptr && mat->C != nullptr);
+		
+			std::lock_guard<std::mutex> lk(mutex);
+			operations[i] = mat;
+			cv.notify_one();
+		}
+	});
 
     
     delete[] inBuff;
@@ -515,40 +538,38 @@ int main(int argc, char* argv[])
 
 	cl_kernel kernel;
 	{
-		// acquire kernel source
-		cl_program vadd_kernel_program;
-		FILE* vadd_source_file = fopen("vadd.cl", "rb");
-		if (vadd_source_file == NULL) {
+		// acquire kernel binary
+		cl_int binary_status;
+
+		FILE* vadd_binary_file = fopen("vadd.bin", "rb");
+		if (vadd_binary_file == NULL) {
 			std::cout << "failed to open program file" << std::endl;
+			return -1;
 		}
-		const char* vadd_source = (char*)malloc(MAX_SOURCE_SIZE);
-		size_t source_size = fread((void*)vadd_source, 1, MAX_SOURCE_SIZE, vadd_source_file);
+		const char* binary_buf = (char*)malloc(MAX_BINARY_SIZE);
+		size_t binary_size = fread((void*)binary_buf, 1, MAX_BINARY_SIZE, vadd_binary_file);
 
-		vadd_kernel_program = clCreateProgramWithSource(context, 1, &vadd_source, NULL, &err);
-		if (err != CL_SUCCESS)
-		{
-			std::cout << "failed to Create Program - Error: " << std::to_string(err) << std::endl;
-		}
 
-		// compile kernel
-		const char opts[1000] = {}; // custom compilation flags can go here
-		err |= clBuildProgram(vadd_kernel_program, 1, &device_id, opts, NULL, NULL);
+		cl_program program = clCreateProgramWithBinary(context, 1, &device_id, (const size_t *)&binary_size,
+													(const unsigned char **)&binary_buf, &binary_status, &err);
+
+
+    	err = clBuildProgram(program, 1, &device_id, NULL, NULL, NULL);
 		if (err != CL_SUCCESS) {
-			printf("Failed to compile OpenCL program %d\n", err);
-			if (err == CL_BUILD_PROGRAM_FAILURE)
-			{
-				printBuildLog(vadd_kernel_program, device_id);
-			}
+			printf("failed to build program \n");
+			return -1;
 		}
 
-		kernel = clCreateKernel(vadd_kernel_program, "vadd", &err);
+		kernel = clCreateKernel(program, "vadd", &err);
 		if (err != CL_SUCCESS) {
 			printf("failed to create kernel\n");
+			return -1;
 		}
-		free((void*)vadd_source);
+
+		free((void*)binary_buf);
 	}
 
-    record(perfFile, 0);
+	add(activityMap, 0);
 
 	if(err == CL_SUCCESS) {
 		std::cout << "\t\t" << PRIO_TO_NAME() << ": Running the application "  << std::endl;
@@ -566,11 +587,17 @@ int main(int argc, char* argv[])
 				cl_ulong enqend = 0;
 				auto perfStartTime = Clock::now();
 				memset(outBuff, 0, buffSize);
+
+				{
+					std::unique_lock<std::mutex> lk(mutex);
+            		cv.wait(lk, [&]{return operations[i] != nullptr;});   
+            	}
+
 				auto mat = operations[i];
 
-				err |= clSetKernelArg(kernel, 0, sizeof(mat.A), &mat.A ); 
-				err |= clSetKernelArg(kernel, 1, sizeof(mat.B), &mat.B ); 
-				err |= clSetKernelArg(kernel, 2, sizeof(mat.C), &mat.C );
+				err |= clSetKernelArg(kernel, 0, sizeof(mat->A), &mat->A ); 
+				err |= clSetKernelArg(kernel, 1, sizeof(mat->B), &mat->B ); 
+				err |= clSetKernelArg(kernel, 2, sizeof(mat->C), &mat->C );
 
 				err |= clEnqueueNDRangeKernel(q, kernel, 1, nullptr, &gws, NULL, 0, nullptr, &evt);
 				err |= clWaitForEvents(1, &evt);
@@ -592,10 +619,9 @@ int main(int argc, char* argv[])
 				}
 				clReleaseEvent(evt);
 
-				auto ts = duration_cast< milliseconds >(system_clock::now().time_since_epoch()).count();
-				perfFile << std::fixed<<std::setprecision(2) << ts << "\t" << timeElapsed(perfStartTime) << std::endl;
-
-				err = clEnqueueReadBuffer(q, mat.C, CL_TRUE, 0, buffSize, outBuff, 0, NULL, NULL);
+				add(perfMap, timeElapsed(perfStartTime));
+				
+				err = clEnqueueReadBuffer(q, mat->C, CL_TRUE, 0, buffSize, outBuff, 0, NULL, NULL);
 
 				for(size_t j = 0; j < buffSize/sizeof(float); j++) 	{
 					if ( outBuff[j] != 2.0f ) {
@@ -607,7 +633,7 @@ int main(int argc, char* argv[])
 			}
 
 			if ( debug_level >= 1 ) {
-				std::cout << "\t\t\t" << PRIO_TO_NAME() << "Loop : " << std::to_string(oLoop) << std::endl ;
+				//std::cout << "\t\t\t" << PRIO_TO_NAME() << "Loop : " << std::to_string(oLoop) << std::endl ;
 			}
 			oLoop++;
 		}
@@ -618,9 +644,10 @@ int main(int argc, char* argv[])
 
 	//cleanup
 	for(size_t i = 0; i < operations.size(); i++) {
-		clReleaseMemObject(operations[i].A);
-		clReleaseMemObject(operations[i].B);
-		clReleaseMemObject(operations[i].C);
+		clReleaseMemObject(operations[i]->A);
+		clReleaseMemObject(operations[i]->B);
+		clReleaseMemObject(operations[i]->C);
+		delete operations[i];
 	}
 
 	clReleaseCommandQueue(q);
@@ -633,10 +660,15 @@ int main(int argc, char* argv[])
 
 	running = false;
 	thr.join();
+	allocWorker.join();
 
-	record(file, (float)getAllocatedMemorySize()/GB);
+	add(activityMap, (float)getAllocatedMemorySize()/GB);
 
-	file.close();
+	std::string activityFilename = (highPrio ? "./output/highPrio.dat" : "./output/lowPrio.dat");
+	record(activityFilename, activityMap);
+
+	std::string perfFilename = (highPrio ? "./output/highPrioPerf.dat" : "./output/lowPrioPerf.dat");
+	record(perfFilename, perfMap);
 
 	return 0;
 }
