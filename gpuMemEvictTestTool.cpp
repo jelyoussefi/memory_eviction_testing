@@ -20,9 +20,6 @@
 #include <chrono>
 #include <thread>
 #include <regex>
-#include <thread>
-#include <mutex>
-#include <condition_variable>
 
 using namespace std::chrono;
 using Clock = std::chrono::high_resolution_clock;
@@ -422,9 +419,6 @@ int main(int argc, char* argv[])
 	duration *= 1000; 
 	cl_int err;
 
-    std::mutex mutex;
-    std::condition_variable cv;
-
 	bool running = true;
 	std::thread thr(activity, &running);
 	
@@ -436,7 +430,6 @@ int main(int argc, char* argv[])
 		return -1;
 	}
 
-	
 	auto totalMemSize  = getDeviceMemorySize(device_id);
 	auto allocatedMemSize = getAllocatedMemorySize();
 	auto requiredMemSize = totalMemSize * memRatio;
@@ -509,27 +502,22 @@ int main(int argc, char* argv[])
 		operations.push_back(nullptr);
 	}
 
-	std::thread allocWorker([&] {
+	for(int i = 0; i < operations.size(); i++) {
+		matrix_t* mat = new matrix_t();
+		mat->A  = createBuffer(context, CL_MEM_READ_ONLY  | CL_MEM_COPY_HOST_PTR, buffSize, inBuff); 
+		mat->B  = createBuffer(context, CL_MEM_READ_ONLY  | CL_MEM_COPY_HOST_PTR, buffSize, inBuff); 
+		mat->C  = createBuffer(context, CL_MEM_WRITE_ONLY | CL_MEM_ALLOC_HOST_PTR, buffSize, NULL); 
 
-		for(int i = 0; i < operations.size(); i++) {
-			matrix_t* mat = new matrix_t();
-			mat->A  = createBuffer(context, CL_MEM_READ_ONLY  | CL_MEM_COPY_HOST_PTR, buffSize, inBuff); 
-			mat->B  = createBuffer(context, CL_MEM_READ_ONLY  | CL_MEM_COPY_HOST_PTR, buffSize, inBuff); 
-			mat->C  = createBuffer(context, CL_MEM_WRITE_ONLY | CL_MEM_ALLOC_HOST_PTR, buffSize, NULL); 
-
-			err = clFinish(q);
-			if (err != CL_SUCCESS) {
-				std::cout << "failed to finish unmap buff " << std::endl;
-				return -1;
-			}
-
-			assert(mat->A != nullptr && mat->B != nullptr && mat->C != nullptr);
-		
-			std::lock_guard<std::mutex> lk(mutex);
-			operations[i] = mat;
-			cv.notify_one();
+		err = clFinish(q);
+		if (err != CL_SUCCESS) {
+			std::cout << "failed to finish unmap buff " << std::endl;
+			return -1;
 		}
-	});
+
+		assert(mat->A != nullptr && mat->B != nullptr && mat->C != nullptr);
+
+		operations[i] = mat;
+	}
 
     
     delete[] inBuff;
@@ -588,10 +576,6 @@ int main(int argc, char* argv[])
 				auto perfStartTime = Clock::now();
 				memset(outBuff, 0, buffSize);
 
-				{
-					std::unique_lock<std::mutex> lk(mutex);
-            		cv.wait(lk, [&]{return operations[i] != nullptr;});   
-            	}
 
 				auto mat = operations[i];
 
@@ -633,7 +617,7 @@ int main(int argc, char* argv[])
 			}
 
 			if ( debug_level >= 1 ) {
-				//std::cout << "\t\t\t" << PRIO_TO_NAME() << "Loop : " << std::to_string(oLoop) << std::endl ;
+				std::cout << "\t\t\t" << PRIO_TO_NAME() << "Loop : " << std::to_string(oLoop) << std::endl ;
 			}
 			oLoop++;
 		}
@@ -660,7 +644,6 @@ int main(int argc, char* argv[])
 
 	running = false;
 	thr.join();
-	allocWorker.join();
 
 	add(activityMap, (float)getAllocatedMemorySize()/GB);
 
