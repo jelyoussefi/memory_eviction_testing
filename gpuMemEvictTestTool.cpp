@@ -502,24 +502,6 @@ int main(int argc, char* argv[])
 		operations.push_back(nullptr);
 	}
 
-	for(int i = 0; i < operations.size(); i++) {
-		matrix_t* mat = new matrix_t();
-		mat->A  = createBuffer(context, CL_MEM_READ_ONLY  | CL_MEM_COPY_HOST_PTR, buffSize, inBuff); 
-		mat->B  = createBuffer(context, CL_MEM_READ_ONLY  | CL_MEM_COPY_HOST_PTR, buffSize, inBuff); 
-		mat->C  = createBuffer(context, CL_MEM_WRITE_ONLY | CL_MEM_ALLOC_HOST_PTR, buffSize, NULL); 
-
-		err = clFinish(q);
-		if (err != CL_SUCCESS) {
-			std::cout << "failed to finish unmap buff " << std::endl;
-			return -1;
-		}
-
-		assert(mat->A != nullptr && mat->B != nullptr && mat->C != nullptr);
-
-		operations[i] = mat;
-	}
-
-    delete[] inBuff;
 
 	std::cout << "\t\t" << PRIO_TO_NAME() << ": Building the kernels "  << std::endl;
 
@@ -575,9 +557,24 @@ int main(int argc, char* argv[])
 				auto perfStartTime = Clock::now();
 				memset(outBuff, 0, buffSize);
 
+				if (operations[i] == nullptr) {
+					matrix_t* mat = new matrix_t();
+				
+					mat->A  = createBuffer(context, CL_MEM_READ_ONLY  | CL_MEM_COPY_HOST_PTR, buffSize, inBuff); 
+					mat->B  = createBuffer(context, CL_MEM_READ_ONLY  | CL_MEM_COPY_HOST_PTR, buffSize, inBuff); 
+					mat->C  = createBuffer(context, CL_MEM_WRITE_ONLY | CL_MEM_ALLOC_HOST_PTR, buffSize, NULL); 
+
+					err = clFinish(q);
+					if (err != CL_SUCCESS) {
+						std::cout << "failed to finish unmap buff " << std::endl;
+						return -1;
+					}
+
+					assert(mat->A != nullptr && mat->B != nullptr && mat->C != nullptr);
+					operations[i] = mat;
+				}
 
 				auto mat = operations[i];
-
 				err |= clSetKernelArg(kernel, 0, sizeof(mat->A), &mat->A ); 
 				err |= clSetKernelArg(kernel, 1, sizeof(mat->B), &mat->B ); 
 				err |= clSetKernelArg(kernel, 2, sizeof(mat->C), &mat->C );
@@ -636,6 +633,7 @@ int main(int argc, char* argv[])
 	clReleaseCommandQueue(q);
 	clReleaseContext(context);
 	clFinish(q);
+	delete[] inBuff;
 
 	std::cout << "\n----------------------------------------------------------------------------" << std::endl;
 	std::cout << "\t"<< PRIO_TO_NAME() << "application "  << YELLOW << "ended" << RESET << std::endl;
