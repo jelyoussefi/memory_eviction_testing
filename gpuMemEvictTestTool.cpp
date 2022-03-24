@@ -392,7 +392,7 @@ int main(int argc, char* argv[])
 
 	float memRatio = 0.5f;
 	float duration = 60;
-	size_t buffSize = 512 * MB;
+	size_t buffSize = 156 * MB;
 
 	int c;
     while ((c = getopt(argc, argv, "m:t:hb:")) != -1) {
@@ -419,8 +419,6 @@ int main(int argc, char* argv[])
 	duration *= 1000; 
 	cl_int err;
 
-	bool running = true;
-	std::thread thr(activity, &running);
 	
 	// Set up a GPU device if available, exit if not GPU
 	cl_device_id device_id;
@@ -461,6 +459,8 @@ int main(int argc, char* argv[])
 	printDeviceInfo(device_id);
 
 	std::map<uint64_t, float> perfMap;
+	bool running = true;
+	std::thread thr(activity, &running);
     add(perfMap, 0);
     
     auto startTime = Clock::now();
@@ -519,7 +519,7 @@ int main(int argc, char* argv[])
 		operations[i] = mat;
 	}
 
-    
+        add(perfMap, 0);
     delete[] inBuff;
 
 	std::cout << "\t\t" << PRIO_TO_NAME() << ": Building the kernels "  << std::endl;
