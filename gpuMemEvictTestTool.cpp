@@ -519,7 +519,6 @@ int main(int argc, char* argv[])
 		operations[i] = mat;
 	}
 
-        add(perfMap, 0);
     delete[] inBuff;
 
 	std::cout << "\t\t" << PRIO_TO_NAME() << ": Building the kernels "  << std::endl;
@@ -557,7 +556,7 @@ int main(int argc, char* argv[])
 		free((void*)binary_buf);
 	}
 
-	add(activityMap, 0);
+	add(perfMap, 0);
 
 	if(err == CL_SUCCESS) {
 		std::cout << "\t\t" << PRIO_TO_NAME() << ": Running the application "  << std::endl;
