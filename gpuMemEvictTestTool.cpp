@@ -540,87 +540,90 @@ int main(int argc, char* argv[])
 
 	add(perfMap, 0);
 
-	if(err == CL_SUCCESS) {
-		std::cout << "\t\t" << PRIO_TO_NAME() << ": Running the application "  << std::endl;
+	if(err != CL_SUCCESS) {
+		return -1;
 
-		size_t gws = buffSize/sizeof(float);
-		float* outBuff = new float[buffSize/sizeof(float)]();
+	}
+	std::cout << "\t\t" << PRIO_TO_NAME() << ": Running the application "  << std::endl;
+
+	size_t gws = buffSize/sizeof(float);
+	float* outBuff = new float[buffSize/sizeof(float)]();
+
+	uint32_t oLoop = 0;
+	uint32_t totalOperations = 0;
+	auto procTime = Clock::now();
+
+	while( timeElapsed(startTime) < duration ) {
+
+		for(size_t i = 0; i < operations.size(); i++) {
+			cl_event evt;
+			cl_ulong enqstart = 0;
+			cl_ulong enqend = 0;
+			auto perfStartTime = Clock::now();
+			memset(outBuff, 0, buffSize);
+
+			if (operations[i] == nullptr) {
+				matrix_t* mat = new matrix_t();
+			
+				mat->A  = createBuffer(context, CL_MEM_READ_ONLY  | CL_MEM_COPY_HOST_PTR, buffSize, inBuff); 
+				mat->B  = createBuffer(context, CL_MEM_READ_ONLY  | CL_MEM_COPY_HOST_PTR, buffSize, inBuff); 
+				mat->C  = createBuffer(context, CL_MEM_WRITE_ONLY | CL_MEM_ALLOC_HOST_PTR, buffSize, NULL); 
+
+				err = clFinish(q);
+				if (err != CL_SUCCESS) {
+					std::cout << "failed to finish unmap buff " << std::endl;
+					return -1;
+				}
+
+				assert(mat->A != nullptr && mat->B != nullptr && mat->C != nullptr);
+				operations[i] = mat;
+			}
+
+			auto mat = operations[i];
+			err |= clSetKernelArg(kernel, 0, sizeof(mat->A), &mat->A ); 
+			err |= clSetKernelArg(kernel, 1, sizeof(mat->B), &mat->B ); 
+			err |= clSetKernelArg(kernel, 2, sizeof(mat->C), &mat->C );
+
+			err |= clEnqueueNDRangeKernel(q, kernel, 1, nullptr, &gws, NULL, 0, nullptr, &evt);
+			err |= clWaitForEvents(1, &evt);
+
+			if (err != CL_SUCCESS) {
+				std::cout << "Exec Error: " << std::to_string(err) << std::endl;
+			}
+
+			err |= clGetEventProfilingInfo(evt, CL_PROFILING_COMMAND_START, sizeof(cl_ulong), &enqstart, NULL);
+			err |= clGetEventProfilingInfo(evt, CL_PROFILING_COMMAND_END, sizeof(cl_ulong), &enqend, NULL);
 	
-		uint32_t oLoop = 0;
-
-		while( timeElapsed(startTime) < duration ) {
- 
-			for(size_t i = 0; i < operations.size(); i++) {
-				cl_event evt;
-				cl_ulong enqstart = 0;
-				cl_ulong enqend = 0;
-				auto perfStartTime = Clock::now();
-				memset(outBuff, 0, buffSize);
-
-				if (operations[i] == nullptr) {
-					matrix_t* mat = new matrix_t();
-				
-					mat->A  = createBuffer(context, CL_MEM_READ_ONLY  | CL_MEM_COPY_HOST_PTR, buffSize, inBuff); 
-					mat->B  = createBuffer(context, CL_MEM_READ_ONLY  | CL_MEM_COPY_HOST_PTR, buffSize, inBuff); 
-					mat->C  = createBuffer(context, CL_MEM_WRITE_ONLY | CL_MEM_ALLOC_HOST_PTR, buffSize, NULL); 
-
-					err = clFinish(q);
-					if (err != CL_SUCCESS) {
-						std::cout << "failed to finish unmap buff " << std::endl;
-						return -1;
-					}
-
-					assert(mat->A != nullptr && mat->B != nullptr && mat->C != nullptr);
-					operations[i] = mat;
-				}
-
-				auto mat = operations[i];
-				err |= clSetKernelArg(kernel, 0, sizeof(mat->A), &mat->A ); 
-				err |= clSetKernelArg(kernel, 1, sizeof(mat->B), &mat->B ); 
-				err |= clSetKernelArg(kernel, 2, sizeof(mat->C), &mat->C );
-
-				err |= clEnqueueNDRangeKernel(q, kernel, 1, nullptr, &gws, NULL, 0, nullptr, &evt);
-				err |= clWaitForEvents(1, &evt);
-
-				if (err != CL_SUCCESS) {
-					std::cout << "Exec Error: " << std::to_string(err) << std::endl;
-				}
-
-				err |= clGetEventProfilingInfo(evt, CL_PROFILING_COMMAND_START, sizeof(cl_ulong), &enqstart, NULL);
-				err |= clGetEventProfilingInfo(evt, CL_PROFILING_COMMAND_END, sizeof(cl_ulong), &enqend, NULL);
-		
-				if (err != CL_SUCCESS) {
-					std::cout << "Exec Error: " << std::to_string(err) << std::endl;
-				}
-
-				float cmdQEnQTime = float((cl_double)(enqend - enqstart) * (cl_double)(1e-09));
-				if ( debug_level >= 2 ) {
-					std::cout << "\t\t" << PRIO_TO_NAME() << std::to_string(i) << " time " << std::to_string(cmdQEnQTime) << std::endl ;
-				}
-				clReleaseEvent(evt);
-
-				add(perfMap, timeElapsed(perfStartTime));
-				
-				err = clEnqueueReadBuffer(q, mat->C, CL_TRUE, 0, buffSize, outBuff, 0, NULL, NULL);
-
-				for(size_t j = 0; j < buffSize/sizeof(float); j++) 	{
-					if ( outBuff[j] != 2.0f ) {
-						std::cout << RED << "\tMatrix addition failed" << RESET << std::endl;
-						break;
-					}
-					
-				}
+			if (err != CL_SUCCESS) {
+				std::cout << "Exec Error: " << std::to_string(err) << std::endl;
 			}
 
-			if ( debug_level >= 1 ) {
-				std::cout << "\t\t\t" << PRIO_TO_NAME() << "Loop : " << std::to_string(oLoop) << std::endl ;
+			float cmdQEnQTime = float((cl_double)(enqend - enqstart) * (cl_double)(1e-09));
+			if ( debug_level >= 2 ) {
+				std::cout << "\t\t" << PRIO_TO_NAME() << std::to_string(i) << " time " << std::to_string(cmdQEnQTime) << std::endl ;
 			}
-			oLoop++;
+			clReleaseEvent(evt);
+
+			add(perfMap, timeElapsed(perfStartTime));
+			
+			err = clEnqueueReadBuffer(q, mat->C, CL_TRUE, 0, buffSize, outBuff, 0, NULL, NULL);
+
+			for(size_t j = 0; j < buffSize/sizeof(float); j++) 	{
+				if ( outBuff[j] != 2.0f ) {
+					std::cout << RED << "\tMatrix addition failed" << RESET << std::endl;
+					break;
+				}
+			}
+			totalOperations++;
 		}
 
-		delete[] outBuff;
+		if ( debug_level >= 1 ) {
+			std::cout << "\t\t\t" << PRIO_TO_NAME() << "Loop : " << std::to_string(oLoop) << std::endl ;
+		}
+		oLoop++;
 	}
 
+	delete[] outBuff;
 
 	//cleanup
 	for(size_t i = 0; i < operations.size(); i++) {
@@ -637,6 +640,8 @@ int main(int argc, char* argv[])
 
 	std::cout << "\n----------------------------------------------------------------------------" << std::endl;
 	std::cout << "\t"<< PRIO_TO_NAME() << "application "  << YELLOW << "ended" << RESET << std::endl;
+	std::cout << "\t\t"<<"Processing time : " << 
+		 BLUE << std::fixed<<std::setprecision(1) << (int)(timeElapsed(procTime)/totalOperations) << RESET << " ms" << RESET << std::endl;
 	std::cout << "----------------------------------------------------------------------------" << std::endl;
 
 	running = false;
