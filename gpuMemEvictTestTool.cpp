@@ -548,12 +548,31 @@ int main(int argc, char* argv[])
 		return -1;
 
 	}
-	std::cout << "\t\t" << PRIO_TO_NAME() << ": Running the application "  << std::endl;
+
 
 	size_t gws = buffSize/sizeof(float);
 	float* outBuff = new float[buffSize/sizeof(float)]();
 
-	uint32_t oLoop = 0;
+	for(size_t i = 0; i < operations.size(); i++) {
+			
+		matrix_t* mat = new matrix_t();
+	
+		mat->A  = createBuffer(context, CL_MEM_READ_ONLY  | CL_MEM_COPY_HOST_PTR, buffSize, inBuff); 
+		mat->B  = createBuffer(context, CL_MEM_READ_ONLY  | CL_MEM_COPY_HOST_PTR, buffSize, inBuff); 
+		mat->C  = createBuffer(context, CL_MEM_WRITE_ONLY | CL_MEM_ALLOC_HOST_PTR, buffSize, NULL); 
+
+		err = clFinish(q);
+		if (err != CL_SUCCESS) {
+			std::cout << "failed to finish unmap buff " << std::endl;
+			return -1;
+		}
+
+		assert(mat->A != nullptr && mat->B != nullptr && mat->C != nullptr);
+		operations[i] = mat;
+	}
+
+	std::cout << "\t\t" << PRIO_TO_NAME() << ": Running the application "  << std::endl;
+
 	uint32_t totalOperations = 0;
 	auto procTime = Clock::now();
 
@@ -565,25 +584,7 @@ int main(int argc, char* argv[])
 			cl_ulong enqend = 0;
 			auto perfStartTime = Clock::now();
 			memset(outBuff, 0, buffSize);
-			if (operations[i] == nullptr) {
-				matrix_t* mat = new matrix_t();
 			
-				mat->A  = createBuffer(context, CL_MEM_READ_ONLY  | CL_MEM_COPY_HOST_PTR, buffSize, inBuff); 
-				mat->B  = createBuffer(context, CL_MEM_READ_ONLY  | CL_MEM_COPY_HOST_PTR, buffSize, inBuff); 
-				mat->C  = createBuffer(context, CL_MEM_WRITE_ONLY | CL_MEM_ALLOC_HOST_PTR, buffSize, NULL); 
-
-				err = clFinish(q);
-				if (err != CL_SUCCESS) {
-					std::cout << "failed to finish unmap buff " << std::endl;
-					return -1;
-				}
-
-				assert(mat->A != nullptr && mat->B != nullptr && mat->C != nullptr);
-				operations[i] = mat;
-			}
-
-			size_t localWorkSize[2], globalWorkSize[2];
-
 			auto mat = operations[i];
 			int wA = MAT_W;
    			int wC = MAT_H;
@@ -593,6 +594,7 @@ int main(int argc, char* argv[])
 			err |= clSetKernelArg(kernel, 3, sizeof(int), &wA );
 			err |= clSetKernelArg(kernel, 4, sizeof(int), &wC );
 
+			size_t localWorkSize[2], globalWorkSize[2];
 			localWorkSize[0] = 16;
    			localWorkSize[1] = 16;
    			globalWorkSize[0] = MAT_W;
