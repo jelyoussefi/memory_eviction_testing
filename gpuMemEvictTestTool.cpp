@@ -16,6 +16,7 @@
 #include <iterator>
 #include <numeric>
 #include <algorithm>
+#include <math.h>
 #include <ctime>
 #include <chrono>
 #include <thread>
@@ -74,6 +75,10 @@ typedef struct {
 	cl_mem B;
 	cl_mem C;
 } matrix_t;
+
+#define MAT_W 2048
+#define MAT_H 2048
+
 
 //----------------------------------------------------------------------------------------------------------------------
 // Local data
@@ -392,7 +397,7 @@ int main(int argc, char* argv[])
 
 	float memRatio = 0.5f;
 	float duration = 60;
-	size_t buffSize = 156 * MB;
+	size_t buffSize = ( MAT_W * MAT_H * sizeof(float) );
 
 	int c;
     while ((c = getopt(argc, argv, "m:t:hb:")) != -1) {
@@ -510,13 +515,13 @@ int main(int argc, char* argv[])
 		// acquire kernel binary
 		cl_int binary_status;
 
-		FILE* vadd_binary_file = fopen("vadd.bin", "rb");
-		if (vadd_binary_file == NULL) {
+		FILE* binary_file = fopen("matmul.bin", "rb");
+		if (binary_file == NULL) {
 			std::cout << "failed to open program file" << std::endl;
 			return -1;
 		}
 		const char* binary_buf = (char*)malloc(MAX_BINARY_SIZE);
-		size_t binary_size = fread((void*)binary_buf, 1, MAX_BINARY_SIZE, vadd_binary_file);
+		size_t binary_size = fread((void*)binary_buf, 1, MAX_BINARY_SIZE, binary_file);
 
 
 		cl_program program = clCreateProgramWithBinary(context, 1, &device_id, (const size_t *)&binary_size,
@@ -529,7 +534,7 @@ int main(int argc, char* argv[])
 			return -1;
 		}
 
-		kernel = clCreateKernel(program, "vadd", &err);
+		kernel = clCreateKernel(program, "matrixMul", &err);
 		if (err != CL_SUCCESS) {
 			printf("failed to create kernel\n");
 			return -1;
@@ -561,7 +566,6 @@ int main(int argc, char* argv[])
 			cl_ulong enqend = 0;
 			auto perfStartTime = Clock::now();
 			memset(outBuff, 0, buffSize);
-
 			if (operations[i] == nullptr) {
 				matrix_t* mat = new matrix_t();
 			
@@ -579,12 +583,23 @@ int main(int argc, char* argv[])
 				operations[i] = mat;
 			}
 
+			size_t localWorkSize[2], globalWorkSize[2];
+
 			auto mat = operations[i];
+			int wA = MAT_W;
+   			int wC = MAT_H;
 			err |= clSetKernelArg(kernel, 0, sizeof(mat->A), &mat->A ); 
 			err |= clSetKernelArg(kernel, 1, sizeof(mat->B), &mat->B ); 
 			err |= clSetKernelArg(kernel, 2, sizeof(mat->C), &mat->C );
+			err |= clSetKernelArg(kernel, 3, sizeof(int), &wA );
+			err |= clSetKernelArg(kernel, 4, sizeof(int), &wC );
 
-			err |= clEnqueueNDRangeKernel(q, kernel, 1, nullptr, &gws, NULL, 0, nullptr, &evt);
+			localWorkSize[0] = 16;
+   			localWorkSize[1] = 16;
+   			globalWorkSize[0] = MAT_W;
+   			globalWorkSize[1] = MAT_H;
+
+			err |= clEnqueueNDRangeKernel(q, kernel, 2, nullptr, globalWorkSize, localWorkSize, 0, nullptr, &evt);
 			err |= clWaitForEvents(1, &evt);
 
 			if (err != CL_SUCCESS) {
@@ -598,7 +613,7 @@ int main(int argc, char* argv[])
 				std::cout << "Exec Error: " << std::to_string(err) << std::endl;
 			}
 
-			float cmdQEnQTime = float((cl_double)(enqend - enqstart) * (cl_double)(1e-09));
+			float cmdQEnQTime = float((cl_double)(enqend - enqstart) * (cl_double)(1e-03));
 			if ( debug_level >= 2 ) {
 				std::cout << "\t\t" << PRIO_TO_NAME() << std::to_string(i) << " time " << std::to_string(cmdQEnQTime) << std::endl ;
 			}
@@ -609,28 +624,35 @@ int main(int argc, char* argv[])
 			err = clEnqueueReadBuffer(q, mat->C, CL_TRUE, 0, buffSize, outBuff, 0, NULL, NULL);
 
 			for(size_t j = 0; j < buffSize/sizeof(float); j++) 	{
-				if ( outBuff[j] != 2.0f ) {
+				if ( outBuff[j] != MAT_W ) {
 					std::cout << RED << "\tMatrix addition failed" << RESET << std::endl;
 					break;
 				}
 			}
+
 			totalOperations++;
+
+			if ( debug_level >= 1 ) {
+				std::cout << "\t\t\t" << PRIO_TO_NAME() << "operation : " << totalOperations << std::endl ;
+			}
+
+			if ( timeElapsed(startTime) >= duration ) {
+				break;
+			}
 		}
 
-		if ( debug_level >= 1 ) {
-			std::cout << "\t\t\t" << PRIO_TO_NAME() << "Loop : " << std::to_string(oLoop) << std::endl ;
-		}
-		oLoop++;
 	}
 
 	delete[] outBuff;
 
 	//cleanup
 	for(size_t i = 0; i < operations.size(); i++) {
-		clReleaseMemObject(operations[i]->A);
-		clReleaseMemObject(operations[i]->B);
-		clReleaseMemObject(operations[i]->C);
-		delete operations[i];
+		if ( operations[i] != nullptr) {
+			clReleaseMemObject(operations[i]->A);
+			clReleaseMemObject(operations[i]->B);
+			clReleaseMemObject(operations[i]->C);
+			delete operations[i];
+		}
 	}
 
 	clReleaseCommandQueue(q);

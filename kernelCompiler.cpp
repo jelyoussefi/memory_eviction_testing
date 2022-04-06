@@ -81,17 +81,17 @@ int main(int argc, char* argv[])
     	auto command_queue = clCreateCommandQueue(context, device_id, 0, NULL);
 
 
-	FILE* file = fopen("vadd.cl", "rb");
+	FILE* file = fopen("matmul.cl", "rb");
 	if (file == NULL) {
 		std::cout << "failed to open program file" << std::endl;
 		return -1;
 	}
 
-	const char* vadd_source = (char*)malloc(MAX_SOURCE_SIZE);
-	size_t source_size = fread((void*)vadd_source, 1, MAX_SOURCE_SIZE, file);
+	const char* source = (char*)malloc(MAX_SOURCE_SIZE);
+	size_t source_size = fread((void*)source, 1, MAX_SOURCE_SIZE, file);
 	fclose(file);
 
-	cl_program program = clCreateProgramWithSource(context, 1, &vadd_source, NULL, &err);
+	cl_program program = clCreateProgramWithSource(context, 1, &source, NULL, &err);
 	if (err != CL_SUCCESS) {
 		std::cout << "failed to Create Program - Error: " << std::to_string(err) << std::endl;
 		return -1;
@@ -104,11 +104,11 @@ int main(int argc, char* argv[])
 		return -1;
 	}
 
-	cl_kernel kernel = clCreateKernel(program, "vadd", &err);
+	cl_kernel kernel = clCreateKernel(program, "matrixMul", &err);
 	if (err != CL_SUCCESS) {
 		printf("failed to create kernel\n");
 	}
-	free((void*)vadd_source);
+	free((void*)source);
 
     size_t binary_size;
  	err = clGetProgramInfo(program, CL_PROGRAM_BINARY_SIZES, sizeof(size_t), &binary_size, NULL);
@@ -122,7 +122,7 @@ int main(int argc, char* argv[])
 		printf("failed to get program binary\n");
 	}
     
-    file = fopen("vadd.bin", "wb");
+    file = fopen("matmul.bin", "wb");
     fwrite(binary, binary_size, 1, file);
     fclose(file);
     free(binary);
