@@ -76,9 +76,8 @@ typedef struct {
 	cl_mem C;
 } matrix_t;
 
-#define MAT_W 2048
-#define MAT_H 2048
-
+#define MAT_W 4096
+#define MAT_H 4096
 
 //----------------------------------------------------------------------------------------------------------------------
 // Local data
