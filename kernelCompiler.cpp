@@ -9,7 +9,7 @@
 #include <fstream>
 #include <sstream> 
 
-#define MAX_SOURCE_SIZE 100000
+#define MAX_SOURCE_SIZE 200000
 
 
 static cl_int getFirstAvailableDevice(cl_device_type type_device, cl_device_id& device_id)
@@ -78,7 +78,7 @@ int main(int argc, char* argv[])
 		return -1;
 	}
 
-    auto command_queue = clCreateCommandQueue(context, device_id, 0, NULL);
+    	auto command_queue = clCreateCommandQueue(context, device_id, 0, NULL);
 
 
 	FILE* file = fopen("vadd.cl", "rb");

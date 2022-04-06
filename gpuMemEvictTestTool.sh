@@ -1,5 +1,7 @@
 #!/bin/bash
 
+./kernelCompiler
+
 ./gpuMemEvictTestTool -m $1 -t 60 &
 lwpPid=$!
 
