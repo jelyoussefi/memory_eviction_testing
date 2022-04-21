@@ -39,7 +39,7 @@ do
 	printf "\nStarting the high priority docker container\n"
 	
 	docker run ${DOCKER_OPTS} -p 8081:8081 --name ${HP_CONTAINTER_NAME} ${IMAGE_NAME}  \
- 		/usr/bin/bash -c "source ~/.bashrc && ./kernelCompiler && ./gpuMemEvictTestTool -m ${HP_MEM_RATIO} -t 15 -h"
+ 		/usr/bin/bash -c "source ~/.bashrc && ./kernelCompiler && ./gpuMemEvictTestTool -m ${HP_MEM_RATIO} -t 20 -h"
 
 	printf "\nResuming the low priority docker container\n"
 
