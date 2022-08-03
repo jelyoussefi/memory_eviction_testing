@@ -656,9 +656,10 @@ int main(int argc, char* argv[])
 		}
 	}
 
+	clFinish(q);
 	clReleaseCommandQueue(q);
 	clReleaseContext(context);
-	clFinish(q);
+
 	delete[] inBuff;
 
 	std::cout << "\n----------------------------------------------------------------------------" << std::endl;
