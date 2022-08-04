@@ -42,7 +42,7 @@ build: kernelCompiler gpuMemEvictTestTool
 
 run: 
 	@$(call msg,Running the gpuMemEvictTestTool application ...)
-	@./gpuMemEvictTestTool.sh ${LP_MEM_RATIO} ${HP_MEM_RATIO}
+	@sudo ./gpuMemEvictTestTool.sh ${LP_MEM_RATIO} ${HP_MEM_RATIO}
 
 show:
 	@python3  plot.py
