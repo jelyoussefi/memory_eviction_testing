@@ -28,14 +28,13 @@ default: run
 gpuMemEvictTestTool:
 	@$(call msg,Building gpuMemEvictTestTool application  ...)
 	@bash -c 'source ${ONEAPI_ROOT}/setvars.sh --force &> /dev/null && \
-		$(CXX_COMPILER) $(CXXFLAGS) $@.cpp -o $@ $(LDFLAGS)' && \
-	cp $@ /usr/bin
+		$(CXX_COMPILER) $(CXXFLAGS) $@.cpp -o $@ $(LDFLAGS)' 
 
 kernelCompiler:
 	@$(call msg,Building the kernel compiler   ...)
 	@bash -c 'source ${ONEAPI_ROOT}/setvars.sh --force &> /dev/null && \
-		$(CXX_COMPILER) $(CXXFLAGS) $@.cpp -o $@ $(LDFLAGS)' && \
-	cp $@ /usr/bin
+		$(CXX_COMPILER) $(CXXFLAGS) $@.cpp -o $@ $(LDFLAGS)' 
+
 
 
 build: kernelCompiler gpuMemEvictTestTool

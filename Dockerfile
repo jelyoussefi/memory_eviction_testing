@@ -7,6 +7,8 @@ WORKDIR /workspace
 
 COPY . /workspace
 
+RUN mkdir -p /workspace/cl_cache
+
 RUN touch ~/.bashrc 
 RUN make build
 

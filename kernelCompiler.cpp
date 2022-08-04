@@ -8,6 +8,7 @@
 #include <iostream>
 #include <fstream>
 #include <sstream> 
+#include <filesystem>
 
 #define MAX_SOURCE_SIZE 200000
 
@@ -64,6 +65,10 @@ static cl_int getFirstAvailableDevice(cl_device_type type_device, cl_device_id& 
 int main(int argc, char* argv[])
 {
 	cl_int err;
+
+	if ( std::filesystem::exists("./cl_cache/matmul.bin") ) {
+		return 0;
+	}
 
 	cl_device_id device_id;
 	err = getFirstAvailableDevice(CL_DEVICE_TYPE_GPU, device_id);
@@ -122,7 +127,7 @@ int main(int argc, char* argv[])
 		printf("failed to get program binary\n");
 	}
     
-    file = fopen("matmul.bin", "wb");
+    file = fopen("./cl_cache/matmul.bin", "wb");
     fwrite(binary, binary_size, 1, file);
     fclose(file);
     free(binary);

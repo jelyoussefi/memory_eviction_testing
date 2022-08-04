@@ -72,7 +72,7 @@ def plotPerf(plotter, perfFile, confFile, color, x0, label=None):
 
 	plotter.bar(x, y, width=0.1, color=color, alpha=0.2, label=label)
 	plotter.fill([x[0],x[1],x[1],x[0],x[0]],[0, 0,20,20,0], color=color, alpha=0.5)
-	plt.text(x[0] + (x[1]-x[0])/2, 0.5, "Init", color='k', horizontalalignment='center', verticalalignment='center', wrap=False )
+	plt.text(x[0] + (x[1]-x[0])/2, 40, "Init", color='k', horizontalalignment='center', verticalalignment='bottom', wrap=False )
 
 		
 if __name__ == "__main__":
@@ -91,7 +91,7 @@ if __name__ == "__main__":
 	axPerf.set_ylim(ymin=0)
 	axPerf.set_ylabel('Processing Time (ms)')
 
-	plt.title("Memory Eviction");
+	plt.title("Docker-based Memory Eviction");
 	lines, labels = axMem.get_legend_handles_labels()
 	lines2, labels2 = axPerf.get_legend_handles_labels()
 	axMem.legend(lines + lines2, labels + labels2, loc='upper right')
