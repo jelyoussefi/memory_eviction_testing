@@ -1,4 +1,4 @@
-FROM ge/intel/sles_dpcpp_compiler
+FROM ge/intel/sles_dpcpp_compiler_host_level_zero
 
 RUN zypper --non-interactive install opencl-headers
 
