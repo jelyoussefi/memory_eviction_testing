@@ -10,7 +10,7 @@ export TERM=xterm
 
 CXX_COMPILER=dpcpp
 CXXFLAGS=-g -Wno-c++20-extensions -Wno-deprecated-declarations -Wno-return-type
-LDFLAGS=-lOpenCL -lpthread
+LDFLAGS=-lOpenCL -lpthread -lstdc++fs
 
 DOCKER_IMAGE_NAME ?= suspend_resume_image
 
