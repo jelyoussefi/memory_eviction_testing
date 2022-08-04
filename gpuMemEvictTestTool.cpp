@@ -514,7 +514,7 @@ int main(int argc, char* argv[])
 		// acquire kernel binary
 		cl_int binary_status;
 
-		FILE* binary_file = fopen("matmul.bin", "rb");
+		FILE* binary_file = fopen("./cl_cache/matmul.bin", "rb");
 		if (binary_file == NULL) {
 			std::cout << "failed to open program file" << std::endl;
 			return -1;
