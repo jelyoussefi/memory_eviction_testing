@@ -13,6 +13,12 @@ HP_MEM_RATIO=$2
 mkdir -p ${CURRENT_DIR}/output
 rm -rf {CURRENT_DIR}/output/*
 
+printf  "\nStarting & suspending the high priority docker container\n"
+docker run ${DOCKER_OPTS} --name ${HP_CONTAINTER_NAME} ${IMAGE_NAME}  \
+ 	/usr/bin/bash -c "source ~/.bashrc && kernelCompiler && gpuMemEvictTestTool -m ${HP_MEM_RATIO} -t 20 -h" &
+ 	
+docker kill --signal STOP ${HP_CONTAINTER_NAME} 
+ 
 printf  "\nStarting the low priority docker container\n"
 
 docker run ${DOCKER_OPTS} --name ${LP_CONTAINTER_NAME} ${IMAGE_NAME}  \
@@ -25,11 +31,12 @@ printf "\nSuspending the low priority docker container\n"
 
 docker kill --signal STOP ${LP_CONTAINTER_NAME}
 
-printf "\nStarting the high priority docker container\n"
+printf "\nResuming the high priority docker container\n"
 
-docker run ${DOCKER_OPTS} --name ${HP_CONTAINTER_NAME} ${IMAGE_NAME}  \
- 	/usr/bin/bash -c "source ~/.bashrc && kernelCompiler && gpuMemEvictTestTool -m ${HP_MEM_RATIO} -t 10 -h"
- 	
+docker kill --signal CONT ${HP_CONTAINTER_NAME}
+
+printf "\nWaiting for the high priority docker to finish\n"
+	
 printf "\nResuming the low priority docker container\n"
 
 docker kill --signal CONT ${LP_CONTAINTER_NAME}
