@@ -1,21 +1,36 @@
-#!/bin/bash
+#!/usr/bin/env bash
+CURRENT_DIR=`pwd`
 
-./kernelCompiler
+IMAGE_NAME=suspend_resume_image
+LP_CONTAINTER_NAME=suspend_resume_lp
+HP_CONTAINTER_NAME=suspend_resume_hp
 
-./gpuMemEvictTestTool -m $1 -t 60 &
-lwpPid=$!
+DOCKER_OPTS="--rm  -v ${CURRENT_DIR}/output:/workspace/output --privileged -v /dev:/dev -a stdout -a stderr"
 
-trap "kill ${lwpPid[@]}" SIGINT
+LP_MEM_RATIO=$1
+HP_MEM_RATIO=$2
 
-sleep 15
+mkdir -p ${CURRENT_DIR}/output
+rm -rf {CURRENT_DIR}/output/*
 
-echo  -e "$(tput setaf 3)\n\tSuspending Process $(tput sgr 0)"$lwpPid ;
-kill -STOP $lwpPid
+printf  "\nStarting the low priority docker container\n"
 
-./gpuMemEvictTestTool -m $2 -t 20 -h
+docker run ${DOCKER_OPTS} --name ${LP_CONTAINTER_NAME} ${IMAGE_NAME}  \
+ 	/usr/bin/bash -c "source ~/.bashrc && kernelCompiler && gpuMemEvictTestTool -m ${LP_MEM_RATIO} -t 30" &
 
-echo  -e "$(tput setaf 3)\n\tResuming Process $(tput sgr 0)"$lwpPid ;
-kill -CONT $lwpPid
 
-wait $lwpPid
+sleep 10
+
+printf "\nSuspending the low priority docker container\n"
+
+docker kill --signal STOP ${LP_CONTAINTER_NAME}
+
+printf "\nStarting the high priority docker container\n"
+
+docker run ${DOCKER_OPTS} --name ${HP_CONTAINTER_NAME} ${IMAGE_NAME}  \
+ 	/usr/bin/bash -c "source ~/.bashrc && kernelCompiler && gpuMemEvictTestTool -m ${HP_MEM_RATIO} -t 10 -h"
+ 	
+printf "\nResuming the low priority docker container\n"
+
+docker kill --signal CONT ${LP_CONTAINTER_NAME}
 
