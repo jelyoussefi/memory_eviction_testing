@@ -12,7 +12,7 @@ CXX_COMPILER=dpcpp
 CXXFLAGS=-g -Wno-c++20-extensions -Wno-deprecated-declarations -Wno-return-type
 LDFLAGS=-lOpenCL -lpthread -lstdc++fs
 
-DOCKER_BASE_IMAGE ?= intel/oneapi-basekit #sge/intel/sles_dpcpp_compiler
+DOCKER_BASE_IMAGE ?= ge/intel/sles_dpcpp_compiler_host_level_zero
 DOCKER_IMAGE_NAME ?= suspend_resume_image
 
 LP_MEM_RATIO ?= 0.5
