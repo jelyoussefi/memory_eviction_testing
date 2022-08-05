@@ -139,7 +139,7 @@ static cl_ulong getAllocatedMemorySize() {
 	
 	cl_ulong allocatedMemSize = 0;
 	
-	for (int t=1; t<=2; t++) {
+	for (int t=0; t<=2; t++) {
 		std::stringstream path;
 		path << "/sys/kernel/debug/dri/" << t << "/i915_gem_objects";
 		std::ifstream infile(path.str());
