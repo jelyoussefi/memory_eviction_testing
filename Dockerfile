@@ -1,6 +1,7 @@
-FROM ge/intel/sles_dpcpp_compiler_host_level_zero
+ARG BASE_IMAGE
+FROM $BASE_IMAGE
 
-RUN zypper --non-interactive install opencl-headers
+#RUN zypper --non-interactive install opencl-headers
 
 RUN mkdir -p /workspace
 WORKDIR /workspace

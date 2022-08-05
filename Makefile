@@ -12,6 +12,7 @@ CXX_COMPILER=dpcpp
 CXXFLAGS=-g -Wno-c++20-extensions -Wno-deprecated-declarations -Wno-return-type
 LDFLAGS=-lOpenCL -lpthread -lstdc++fs
 
+DOCKER_BASE_IMAGE ?= intel/oneapi-basekit #sge/intel/sles_dpcpp_compiler
 DOCKER_IMAGE_NAME ?= suspend_resume_image
 
 LP_MEM_RATIO ?= 0.5
@@ -39,7 +40,7 @@ kernelCompiler:
 
 build: kernelCompiler gpuMemEvictTestTool
 
-run: 
+run: docker-build
 	@$(call msg,Running the gpuMemEvictTestTool application ...)
 	@sudo ./gpuMemEvictTestTool.sh ${LP_MEM_RATIO} ${HP_MEM_RATIO}
 
@@ -54,7 +55,7 @@ clean:
 #----------------------------------------------------------------------------------------------------------------------
 docker-build:
 	@$(call msg, Building the docker image  ${DOCKER_IMAGE_NAME} ...)
-	@docker build  -t ${DOCKER_IMAGE_NAME} . --force-rm
+	@docker build  --build-arg BASE_IMAGE=${DOCKER_BASE_IMAGE}  -t ${DOCKER_IMAGE_NAME} . --force-rm
 	
 #----------------------------------------------------------------------------------------------------------------------
 # helper functions
