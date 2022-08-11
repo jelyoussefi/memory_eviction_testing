@@ -22,6 +22,11 @@
 #include <thread>
 #include <regex>
 
+#include <prometheus/gauge.h>
+#include <prometheus/exposer.h>
+#include <prometheus/registry.h>
+
+using namespace prometheus;
 using namespace std::chrono;
 using Clock = std::chrono::high_resolution_clock;
 
@@ -139,7 +144,7 @@ static cl_ulong getAllocatedMemorySize() {
 	
 	cl_ulong allocatedMemSize = 0;
 	
-	for (int t=0; t<=2; t++) {
+	for (int t=1; t<=2; t++) {
 		std::stringstream path;
 		path << "/sys/kernel/debug/dri/" << t << "/i915_gem_objects";
 		std::ifstream infile(path.str());
@@ -191,12 +196,13 @@ static void add(std::map<uint64_t, float> &map, float val) {
 }
 
 
-static void activity(bool* running) {
+static void activity(Gauge* gauge) {
 
 	std::string filename = (highPrio ? "./output/highPrio.dat" : "./output/lowPrio.dat");
 
-	while(*running) {
-		add(activityMap, (float)getAllocatedMemorySize()/GB);
+	while(gauge->Value() != -1 ) {
+		double usedMemSize = getAllocatedMemorySize()/GB;
+		gauge->Set(usedMemSize);
 		usleep(100000);
 	}
 
@@ -395,8 +401,9 @@ int main(int argc, char* argv[])
 {
 
 	float memRatio = 0.5f;
-	float duration = 60;
+	float duration = 0;
 	size_t buffSize = ( MAT_W * MAT_H * sizeof(float) );
+	uint32_t port = 8080;
 
 	int c;
     while ((c = getopt(argc, argv, "m:t:hb:")) != -1) {
@@ -421,6 +428,10 @@ int main(int argc, char* argv[])
     }
 
 	duration *= 1000; 
+	if (highPrio) {
+		port = 8081;
+	}
+
 	cl_int err;
 
 	
@@ -431,6 +442,20 @@ int main(int argc, char* argv[])
 		std::cout << "No GPU found. Exit\n";
 		return -1;
 	}
+
+  	Exposer exposer{"0.0.0.0:"+std::to_string(port)};
+  	auto registry = std::make_shared<Registry>();
+
+	auto& gauge = BuildGauge()
+							.Name("memory_eviction_monitoring")
+							.Help("memory Eviction monitoring")
+							.Register(*registry);
+
+  	std::string procType = highPrio ? "hp":"lp";
+	auto& compute_time_gauge = gauge.Add({{"mem_eviction_" + procType + "_compute_time_seconds", "Matrix multiplication computing time"}});
+    auto& gpu_used_mem_gauge = gauge.Add({{"mem_eviction_" + procType + "_gpu_used_mem_gbytes", "Memory size used by gpu "}});
+
+  	exposer.RegisterCollectable(registry);
 
 	auto totalMemSize  = getDeviceMemorySize(device_id);
 	auto allocatedMemSize = getAllocatedMemorySize();
@@ -464,7 +489,7 @@ int main(int argc, char* argv[])
 
 	std::map<uint64_t, float> perfMap;
 	bool running = true;
-	std::thread thr(activity, &running);
+	std::thread thr(activity, &gpu_used_mem_gauge);
     add(perfMap, 0);
     
     auto startTime = Clock::now();
@@ -514,7 +539,7 @@ int main(int argc, char* argv[])
 		// acquire kernel binary
 		cl_int binary_status;
 
-		FILE* binary_file = fopen("./cl_cache/matmul.bin", "rb");
+		FILE* binary_file = fopen("matmul.bin", "rb");
 		if (binary_file == NULL) {
 			std::cout << "failed to open program file" << std::endl;
 			return -1;
@@ -576,7 +601,7 @@ int main(int argc, char* argv[])
 	uint32_t totalOperations = 0;
 	auto procTime = Clock::now();
 
-	while( timeElapsed(startTime) < duration ) {
+	while( duration==0 || timeElapsed(startTime) < duration ) {
 
 		for(size_t i = 0; i < operations.size(); i++) {
 			cl_event evt;
@@ -620,7 +645,9 @@ int main(int argc, char* argv[])
 			}
 			clReleaseEvent(evt);
 
-			add(perfMap, timeElapsed(perfStartTime));
+			auto computeTime = timeElapsed(perfStartTime);
+
+			compute_time_gauge.Set(computeTime);
 			
 			err = clEnqueueReadBuffer(q, mat->C, CL_TRUE, 0, buffSize, outBuff, 0, NULL, NULL);
 
@@ -632,7 +659,6 @@ int main(int argc, char* argv[])
 			}
 
 			totalOperations++;
-
 			if ( debug_level >= 1 ) {
 				std::cout << "\t\t\t" << PRIO_TO_NAME() << "operation : " << totalOperations << std::endl ;
 			}
@@ -656,10 +682,9 @@ int main(int argc, char* argv[])
 		}
 	}
 
-	clFinish(q);
 	clReleaseCommandQueue(q);
 	clReleaseContext(context);
-
+	clFinish(q);
 	delete[] inBuff;
 
 	std::cout << "\n----------------------------------------------------------------------------" << std::endl;
@@ -669,6 +694,7 @@ int main(int argc, char* argv[])
 	std::cout << "----------------------------------------------------------------------------" << std::endl;
 
 	running = false;
+	gpu_used_mem_gauge.Set(-1);
 	thr.join();
 
 	add(activityMap, (float)getAllocatedMemorySize()/GB);

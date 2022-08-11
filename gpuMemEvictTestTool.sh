@@ -19,9 +19,9 @@ rm -rf {CURRENT_DIR}/output/*
 printf  "\nStarting the low priority docker container\n"
 
 docker run ${DOCKER_OPTS} --name ${LP_CONTAINTER_NAME} ${IMAGE_NAME}  \
- 	/usr/bin/bash -c "source ~/.bashrc && ./kernelCompiler && ./gpuMemEvictTestTool -m ${LP_MEM_RATIO} -t 30" &
+ 	/usr/bin/bash -c "source ~/.bashrc && ./sysMemMonitor && ./kernelCompiler && ./gpuMemEvictTestTool -m ${LP_MEM_RATIO} -t 300" &
 
-sleep 10
+sleep 20
 
 printf "\nSuspending the low priority docker container\n"
 
