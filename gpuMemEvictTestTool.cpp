@@ -144,7 +144,7 @@ static cl_ulong getAllocatedMemorySize() {
 	
 	cl_ulong allocatedMemSize = 0;
 	
-	for (int t=1; t<=2; t++) {
+	for (int t=0; t<=2; t++) {
 		std::stringstream path;
 		path << "/sys/kernel/debug/dri/" << t << "/i915_gem_objects";
 		std::ifstream infile(path.str());
@@ -451,9 +451,9 @@ int main(int argc, char* argv[])
 							.Help("memory Eviction monitoring")
 							.Register(*registry);
 
-  	std::string procType = highPrio ? "hp":"lp";
-	auto& compute_time_gauge = gauge.Add({{"mem_eviction_" + procType + "_compute_time_seconds", "Matrix multiplication computing time"}});
-    auto& gpu_used_mem_gauge = gauge.Add({{"mem_eviction_" + procType + "_gpu_used_mem_gbytes", "Memory size used by gpu "}});
+  	std::string containerType = highPrio ? "hp":"lp";
+	auto& compute_time_gauge = gauge.Add({{"label", containerType + " container: compute time (ms)"}});
+    	auto& gpu_used_mem_gauge = gauge.Add({{"label", containerType + " container: used gpu memory (GB)"}});
 
   	exposer.RegisterCollectable(registry);
 
@@ -539,7 +539,7 @@ int main(int argc, char* argv[])
 		// acquire kernel binary
 		cl_int binary_status;
 
-		FILE* binary_file = fopen("matmul.bin", "rb");
+		FILE* binary_file = fopen("./cl_cache/matmul.bin", "rb");
 		if (binary_file == NULL) {
 			std::cout << "failed to open program file" << std::endl;
 			return -1;
@@ -681,10 +681,10 @@ int main(int argc, char* argv[])
 			delete operations[i];
 		}
 	}
-
+        clFinish(q);
 	clReleaseCommandQueue(q);
 	clReleaseContext(context);
-	clFinish(q);
+
 	delete[] inBuff;
 
 	std::cout << "\n----------------------------------------------------------------------------" << std::endl;
