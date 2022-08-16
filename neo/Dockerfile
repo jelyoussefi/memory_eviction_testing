@@ -1,37 +1,49 @@
-FROM ge/intel/sles_dpcpp_compiler
+FROM ubuntu:20.04 as neo_builder
 
-RUN zypper --non-interactive install opencl-headers flex bison libzip-devel
+RUN rm /bin/sh && ln -s /bin/bash /bin/sh
+ENV DEBIAN_FRONTEND noninteractive
 
-RUN git config --global user.name "Jamal El Youssefi"
-RUN git config --global user.email "jamal.elyoussefi@yahoo.fr"
+RUN apt update && apt install -y cmake g++ git pkg-config software-properties-common wget
+RUN add-apt-repository ppa:intel-opencl/intel-opencl
+RUN apt update
+RUN apt install -y libigdgmm-dev
+
+
+# Building gmmlib
+#----------------------
+WORKDIR /tmp
+
+RUN git clone https://github.com/intel/gmmlib
+WORKDIR /tmp/gmmlib
+RUN git checkout intel-gmmlib-21.2.1
+RUN mkdir /tmp/gmmlib/build
+WORKDIR /tmp/gmmlib/build
+RUN cmake .. && make -j`nproc` && make install
+
+# Installing igc
+#----------------------
 
 WORKDIR /tmp
 
-# Building igc
+RUN wget https://github.com/intel/intel-graphics-compiler/releases/download/igc-1.0.8365/intel-igc-opencl-devel_1.0.8365_amd64.deb
+RUN wget https://github.com/intel/intel-graphics-compiler/releases/download/igc-1.0.8365/intel-igc-opencl_1.0.8365_amd64.deb
+RUN wget https://github.com/intel/intel-graphics-compiler/releases/download/igc-1.0.8365/intel-igc-core_1.0.8365_amd64.deb
+RUN wget https://github.com/intel/compute-runtime/releases/download/21.33.20678/intel-ocloc_21.33.20678_amd64.deb
+RUN dpkg -i *.deb
 
-RUN git clone https://github.com/intel/intel-graphics-compiler igc
-RUN git clone https://github.com/intel/vc-intrinsics vc-intrinsics
-RUN git clone -b llvmorg-11.1.0 https://github.com/llvm/llvm-project llvm-project
-RUN git clone -b ocl-open-110 https://github.com/intel/opencl-clang llvm-project/llvm/projects/opencl-clang
-RUN git clone -b llvm_release_110 https://github.com/KhronosGroup/SPIRV-LLVM-Translator llvm-project/llvm/projects/llvm-spirv
-RUN git clone https://github.com/KhronosGroup/SPIRV-Tools.git SPIRV-Tools
-RUN git clone https://github.com/KhronosGroup/SPIRV-Headers.git SPIRV-Headers
-RUN mkdir build
-RUN cd build && \
-	cmake ../igc && make -j`nproc` && make install
+# Building Neo
+#----------------------
 
-# Building gmmlib
-
-RUN git clone https://github.com/intel/gmmlib
-RUN cd gmmlib && mkdir build && cd ./build && \
-	cmake .. && make -j`nproc` && make install	
-
-# Building neo drivers
+WORKDIR /tmp
 
 RUN git clone https://github.com/intel/compute-runtime neo
-RUN cd neo && mkdir build && cd ./build && \
-	cmake -DNEO_SKIP_UNIT_TESTS=1 ..  && make -j`nproc` && make install
-
-RUN echo "export LD_LIBRARY_PATH=/usr/local/lib:$LD_LIBRARY_PATH" >> ~/.bashrc
-
-RUN rm -rf /tmp/*
+WORKDIR /tmp/neo
+RUN git config --global user.email "tester@intel.com"
+RUN git config --global user.name "Tester"
+RUN git checkout 21.34.20767
+RUN git cherry-pick ac30102
+RUN git cherry-pick 37af6a
+RUN mkdir /tmp/neo/build
+WORKDIR /tmp/neo/build
+RUN cmake -DCMAKE_BUILD_TYPE=Release -DSKIP_UNIT_TESTS=1 ..
+RUN make install

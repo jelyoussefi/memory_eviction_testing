@@ -89,8 +89,6 @@ typedef struct {
 //----------------------------------------------------------------------------------------------------------------------
 static bool highPrio = false;
 static int debug_level = 1;
-static std::ofstream file;
-static std::map<uint64_t, float> activityMap;
 
 //----------------------------------------------------------------------------------------------------------------------
 // Local functions
@@ -179,33 +177,13 @@ static cl_mem createBuffer(cl_context ctx, cl_mem_flags flags, size_t size, void
 }
 
 
-static void record(std::string filename, std::map<uint64_t, float>& map) {
-	std::ofstream of;
-	of.open (filename);
-	if ( of.is_open() ) {
-		for (auto const& x : map) {
-			of << std::fixed<<std::setprecision(2) << x.first << "\t" << x.second << std::endl;
-		}
-		of.close();
-	}
-}
-
-static void add(std::map<uint64_t, float> &map, float val) {
-	auto ts = duration_cast< milliseconds >(system_clock::now().time_since_epoch()).count();
-	map.insert(std::make_pair(ts, val));
-}
-
-
 static void activity(Gauge* gauge) {
-
-	std::string filename = (highPrio ? "./output/highPrio.dat" : "./output/lowPrio.dat");
 
 	while(gauge->Value() != -1 ) {
 		double usedMemSize = getAllocatedMemorySize()/GB;
 		gauge->Set(usedMemSize);
 		usleep(100000);
 	}
-
 }
 
 static void printDeviceInfo(cl_device_id device) {
@@ -453,25 +431,12 @@ int main(int argc, char* argv[])
 
   	std::string containerType = highPrio ? "hp":"lp";
 	auto& compute_time_gauge = gauge.Add({{"label", containerType + " container: compute time (ms)"}});
-    	auto& gpu_used_mem_gauge = gauge.Add({{"label", containerType + " container: used gpu memory (GB)"}});
-
-  	exposer.RegisterCollectable(registry);
+    auto& gpu_used_mem_gauge = gauge.Add({{"label", containerType + " container: used gpu memory (GB)"}});
 
 	auto totalMemSize  = getDeviceMemorySize(device_id);
 	auto allocatedMemSize = getAllocatedMemorySize();
 	auto requiredMemSize = totalMemSize * memRatio;
 	auto availableMemSize = totalMemSize - allocatedMemSize;
-
-	std::string configFilename = (highPrio ? "./output/highPrio.json" : "./output/lowPrio.json");
-	std::ofstream jsonFile;
-	jsonFile.open (configFilename);
-	if (jsonFile.is_open()) {
-		jsonFile<<"{\n"<<"\t\"totalMemSize\": "<<totalMemSize<<",";
-		jsonFile<<"\n\t\"memSizeRatio\": "<<memRatio<<",";
-		jsonFile<<"\n\t\"bufferSize\": "<<buffSize;
-		jsonFile<<"\n}"<<std::endl;
-		jsonFile.close();
-	}	
 	
 	size_t nbOperations =  (requiredMemSize)/(3*buffSize);
 
@@ -487,10 +452,8 @@ int main(int argc, char* argv[])
 	
 	printDeviceInfo(device_id);
 
-	std::map<uint64_t, float> perfMap;
 	bool running = true;
 	std::thread thr(activity, &gpu_used_mem_gauge);
-    add(perfMap, 0);
     
     auto startTime = Clock::now();
     cl_context context = clCreateContext(NULL, 1, &device_id, NULL, NULL, &err);
@@ -566,8 +529,6 @@ int main(int argc, char* argv[])
 
 		free((void*)binary_buf);
 	}
-
-	add(perfMap, 0);
 
 	if(err != CL_SUCCESS) {
 		return -1;
@@ -646,6 +607,9 @@ int main(int argc, char* argv[])
 			clReleaseEvent(evt);
 
 			auto computeTime = timeElapsed(perfStartTime);
+			if (i==0) {
+			  	exposer.RegisterCollectable(registry);
+			}
 
 			compute_time_gauge.Set(computeTime);
 			
@@ -681,7 +645,8 @@ int main(int argc, char* argv[])
 			delete operations[i];
 		}
 	}
-        clFinish(q);
+    
+    clFinish(q);
 	clReleaseCommandQueue(q);
 	clReleaseContext(context);
 
@@ -697,13 +662,6 @@ int main(int argc, char* argv[])
 	gpu_used_mem_gauge.Set(-1);
 	thr.join();
 
-	add(activityMap, (float)getAllocatedMemorySize()/GB);
-
-	std::string activityFilename = (highPrio ? "./output/highPrio.dat" : "./output/lowPrio.dat");
-	record(activityFilename, activityMap);
-
-	std::string perfFilename = (highPrio ? "./output/highPrioPerf.dat" : "./output/lowPrioPerf.dat");
-	record(perfFilename, perfMap);
-
+	
 	return 0;
 }
