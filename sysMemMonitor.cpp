@@ -24,7 +24,7 @@ int main() {
 							.Help("memory Eviction monitoring")
 							.Register(*registry);
 
-	auto& g = gauge.Add({{"mem_eviction_system_used_mem_gbytes", "System Used Memeory"}});
+	auto& g = gauge.Add({{"label", "used system memeory (GB)"}});
 
   	exposer.RegisterCollectable(registry);
 
@@ -37,7 +37,7 @@ int main() {
 		memUsed /= GB;
 
 		g.Set(memUsed);
-
+		//std::cout<<memUsed<<std::endl;
 		sleep(1);
 	}
 

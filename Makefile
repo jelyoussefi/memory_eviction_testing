@@ -17,7 +17,7 @@ DOCKER_BASE_IMAGE ?= ge/intel/sles_dpcpp_compiler_host_level_zero
 DOCKER_IMAGE_NAME ?= suspend_resume_image
 
 
-LP_MEM_RATIO ?= 0.5
+LP_MEM_RATIO ?= 0.8
 HP_MEM_RATIO ?= 0.8
 
 export LD_LIBRARY_PATH:=/usr/local/lib:${LD_LIBRARY_PATH}
@@ -27,7 +27,14 @@ export LD_LIBRARY_PATH:=/usr/local/lib:${LD_LIBRARY_PATH}
 default: run 
 .PHONY: gpuMemEvictTestTool kernelCompiler sysMemMonitor grafana
 
-	
+prometheus-cpp:
+	@$(call msg,Building  prometheus-cpp ...)
+	@cd /tmp && rm -rf prometheus-cpp && git clone https://github.com/jupp0r/prometheus-cpp && \
+		cd prometheus-cpp && git submodule init && git submodule update && \
+		mkdir build && cd build && CXX=g++ \
+		cmake .. -DBUILD_SHARED_LIBS=ON -DENABLE_PUSH=OFF -DENABLE_COMPRESSION=OFF .. && \
+		make && sudo make install
+
 gpuMemEvictTestTool:
 	@$(call msg,Building gpuMemEvictTestTool application  ...)
 	@bash -c 'source ${ONEAPI_ROOT}/setvars.sh --force &> /dev/null && \
@@ -47,11 +54,11 @@ grafana:
 	@$(call msg,Starting grapfana  ...)
 	@cd ${CURRENT_DIR}/grafana && \
 	 	docker-compose down && \
-		docker-compose up -d
+		docker-compose --env-file ./.env up -d
 	
-build: kernelCompiler gpuMemEvictTestTool sysMemMonitor
+build: kernelCompiler gpuMemEvictTestTool 
 
-run: docker-build
+run: grafana
 	@$(call msg,Running the gpuMemEvictTestTool application ...)
 	@sudo ./gpuMemEvictTestTool.sh ${LP_MEM_RATIO} ${HP_MEM_RATIO}
 
