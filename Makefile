@@ -45,7 +45,7 @@ grafana:
 build:
 	@make -C ./apps/test build
 	
-run: grafana
+run: sysMemMonitor grafana
 	@$(call msg,Running the gpuMemEvictTestTool application ...)
 	@sudo ./gpuMemEvictTestTool.sh ${LP_MEM_RATIO} ${HP_MEM_RATIO}
 
