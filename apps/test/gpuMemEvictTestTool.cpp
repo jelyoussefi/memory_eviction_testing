@@ -607,12 +607,11 @@ int main(int argc, char* argv[])
 			clReleaseEvent(evt);
 
 			auto computeTime = timeElapsed(perfStartTime);
-			if (i==0) {
-			  	exposer.RegisterCollectable(registry);
-			}
 
-			compute_time_gauge.Set(computeTime);
-			
+			compute_time_gauge.Set(computeTime/1000.0);
+	 		if (i==0) {
+                                 exposer.RegisterCollectable(registry);
+		   	}
 			err = clEnqueueReadBuffer(q, mat->C, CL_TRUE, 0, buffSize, outBuff, 0, NULL, NULL);
 
 			for(size_t j = 0; j < buffSize/sizeof(float); j++) 	{
@@ -646,7 +645,7 @@ int main(int argc, char* argv[])
 		}
 	}
     
-    clFinish(q);
+    	clFinish(q);
 	clReleaseCommandQueue(q);
 	clReleaseContext(context);
 
