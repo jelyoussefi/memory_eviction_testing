@@ -13,7 +13,7 @@ CXXFLAGS=-g -Wno-c++20-extensions -Wno-deprecated-declarations -Wno-return-type
 LDFLAGS=-lOpenCL -lpthread -lstdc++fs -lprometheus-cpp-core -lprometheus-cpp-pull
 
 
-DOCKER_BASE_IMAGE ?= ge/intel/sles_dpcpp_compiler
+DOCKER_BASE_IMAGE ?= ge/intel/sles_dpcpp_compiler_host_level_zero
 DOCKER_IMAGE_NAME ?= suspend_resume_image
 
 
