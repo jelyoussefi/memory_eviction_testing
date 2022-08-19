@@ -7,7 +7,7 @@ HP_CONTAINTER_NAME=suspend_resume_hp
 
 DOCKER_OPTS="--rm  -v ${CURRENT_DIR}/output:/workspace/output --privileged \
 		-v /dev:/dev -v /sys/kernel/debug/:/sys/kernel/debug \
-		-v ${CURRENT_DIR}/cl_cache:/workspace/cl_cache \
+		-v ${CURRENT_DIR}/cl_cache:/workspace/apps/test/cl_cache \
 		-a stdout -a stderr"
 
 LP_MEM_RATIO=$1
@@ -25,8 +25,7 @@ pkill -9 -f sysMemMonitor
 
 printf  "\nStarting the low priority docker container\n"
 
-docker run ${DOCKER_OPTS} -p 8080:8080 --name ${LP_CONTAINTER_NAME} ${IMAGE_NAME}  \
- 	/usr/bin/bash -c "source ~/.bashrc && ./kernelCompiler && ./gpuMemEvictTestTool -m ${LP_MEM_RATIO} " &
+docker run ${DOCKER_OPTS} -p 8080:8080 --name ${LP_CONTAINTER_NAME} ${IMAGE_NAME} ./lp_entry_point.sh &
 
 while true
 do 
@@ -34,14 +33,14 @@ do
 
 	printf "\nSuspending the low priority docker container\n"
 
-	docker kill --signal STOP ${LP_CONTAINTER_NAME}
+	docker kill --signal="SIGUSR1" ${LP_CONTAINTER_NAME}
 
 	printf "\nStarting the high priority docker container\n"
 	
-	docker run ${DOCKER_OPTS} -p 8081:8081 --name ${HP_CONTAINTER_NAME} ${IMAGE_NAME}  \
- 		/usr/bin/bash -c "source ~/.bashrc && ./kernelCompiler && ./gpuMemEvictTestTool -m ${HP_MEM_RATIO} -t 15 -h"
-
+	docker run ${DOCKER_OPTS} -p 8081:8081 --name ${HP_CONTAINTER_NAME} ${IMAGE_NAME} ./hp_entry_point.sh
+	
+	
 	printf "\nResuming the low priority docker container\n"
 
-	docker kill --signal CONT ${LP_CONTAINTER_NAME}
+	docker kill --signal="SIGUSR2" ${LP_CONTAINTER_NAME}
 done

@@ -13,45 +13,36 @@ CXXFLAGS=-g -Wno-c++20-extensions -Wno-deprecated-declarations -Wno-return-type
 LDFLAGS=-lOpenCL -lpthread -lstdc++fs -lprometheus-cpp-core -lprometheus-cpp-pull
 
 
-DOCKER_BASE_IMAGE ?= ge/intel/sles_dpcpp_compiler
-DOCKER_IMAGE_NAME ?= suspend_resume_image
-
-
-LP_MEM_RATIO ?= 0.8
-HP_MEM_RATIO ?= 0.8
-
 export LD_LIBRARY_PATH:=/usr/local/lib:${LD_LIBRARY_PATH}
 #----------------------------------------------------------------------------------------------------------------------
 # Targets
 #----------------------------------------------------------------------------------------------------------------------
-default: run 
-.PHONY:  sysMemMonitor grafana
+default: build 
+.PHONY: prometheus-cpp gpuMemEvictTestTool kernelCompiler
 
+prometheus-cpp:
+	@$(call msg,Building  prometheus-cpp ...)
+	@cd /tmp && rm -rf prometheus-cpp && git clone https://github.com/jupp0r/prometheus-cpp && \
+		cd prometheus-cpp && git submodule init && git submodule update && \
+		mkdir build && cd build && CXX=g++ \
+		cmake .. -DBUILD_SHARED_LIBS=ON -DENABLE_PUSH=OFF -DENABLE_COMPRESSION=OFF .. && \
+		make && sudo make install
 
-sysMemMonitor:
-	@$(call msg,Building the system memory monitor compiler   ...)
+gpuMemEvictTestTool:
+	@$(call msg,Building gpuMemEvictTestTool application  ...)
 	@bash -c 'source ${ONEAPI_ROOT}/setvars.sh --force &> /dev/null && \
 		$(CXX_COMPILER) $(CXXFLAGS) $@.cpp -o $@ $(LDFLAGS)'
 
-grafana:
-	@$(call msg,Starting grapfana  ...)
-	@mkdir -p ${CURRENT_DIR}/grafana/data
-	@chmod 777 ${CURRENT_DIR}/grafana/data
-	@cd ${CURRENT_DIR}/grafana && \
-	 	docker-compose down && \
-		docker-compose up -d
-	
+kernelCompiler: prometheus-cpp
+	@$(call msg,Building the kernel compiler   ...)
+	@bash -c 'source ${ONEAPI_ROOT}/setvars.sh --force &> /dev/null && \
+		$(CXX_COMPILER) $(CXXFLAGS) $@.cpp -o $@ $(LDFLAGS)'
 
-build:
-	@make -C ./apps/test build
-	
-run: grafana
-	@$(call msg,Running the gpuMemEvictTestTool application ...)
-	@sudo ./gpuMemEvictTestTool.sh ${LP_MEM_RATIO} ${HP_MEM_RATIO}
 
-	
+build: prometheus-cpp kernelCompiler gpuMemEvictTestTool 
+
 clean:
-	@make -C ./apps/test clean
+	@rm -rf gpuMemEvictTestTool kernelCompiler
 
 #----------------------------------------------------------------------------------------------------------------------
 # Docker

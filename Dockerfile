@@ -6,12 +6,13 @@ RUN zypper --non-interactive install sudo opencl-headers
 ENV LD_LIBRARY_PATH="/usr/local/lib64/:${LD_LIBRARY_PATH}" 
 
 RUN mkdir -p /workspace
-WORKDIR /workspace
 
 COPY . /workspace
 
-RUN mkdir -p /workspace/cl_cache
+WORKDIR /workspace
 
-RUN touch ~/.bashrc 
-RUN make prometheus-cpp build
+RUN mv ./suspend_resume_manager.sh /usr/bin/
+
+RUN make build
+
 
