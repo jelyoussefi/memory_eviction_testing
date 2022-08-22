@@ -5,7 +5,7 @@ source ~/.bashrc
 cd ./apps/test/
 
 ./kernelCompiler 
-./gpuMemEvictTestTool -m 0.8 &
+./gpuMemEvictTestTool -m ${LP_MEM_RATIO} &
 procPid=$!
 
 . /usr/bin/suspend_resume_manager.sh $procPid

@@ -5,5 +5,5 @@ source ~/.bashrc
 cd ./apps/test/
 
 ./kernelCompiler 
-./gpuMemEvictTestTool -m 0.8 -t 20 -h
+./gpuMemEvictTestTool -m ${HP_MEM_RATIO} -t ${HP_DURATION} -h
 

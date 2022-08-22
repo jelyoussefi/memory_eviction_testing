@@ -5,23 +5,21 @@ IMAGE_NAME=suspend_resume_image
 LP_CONTAINTER_NAME=suspend_resume_lp
 HP_CONTAINTER_NAME=suspend_resume_hp
 
+LP_MEM_RATIO=$1
+HP_MEM_RATIO=$2
+HP_DURATION=$3
+
 DOCKER_OPTS="--rm  -v ${CURRENT_DIR}/output:/workspace/output --privileged \
 		-v /dev:/dev -v /sys/kernel/debug/:/sys/kernel/debug \
 		-v ${CURRENT_DIR}/cl_cache:/workspace/apps/test/cl_cache \
-		-a stdout -a stderr"
+		-a stdout -a stderr \
+		--env LP_MEM_RATIO=${LP_MEM_RATIO} --env HP_MEM_RATIO=${HP_MEM_RATIO} --env HP_DURATION=${HP_DURATION} "
 
-LP_MEM_RATIO=$1
-HP_MEM_RATIO=$2
 
 export LD_LIBRARY_PATH=/usr/local/lib/:${LD_LIBRARY_PATH}
 
-mkdir -p ${CURRENT_DIR}/output
-rm -rf {CURRENT_DIR}/output/*
-
 docker rm -f ${LP_CONTAINTER_NAME} ${HP_CONTAINTER_NAME} 2> /dev/null
 
-pkill -9 -f sysMemMonitor
-./sysMemMonitor &
 
 printf  "\nStarting the low priority docker container\n"
 

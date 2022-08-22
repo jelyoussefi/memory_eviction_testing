@@ -89,6 +89,7 @@ typedef struct {
 //----------------------------------------------------------------------------------------------------------------------
 static bool highPrio = false;
 static int debug_level = 1;
+static bool running = false;
 
 //----------------------------------------------------------------------------------------------------------------------
 // Local functions
@@ -138,31 +139,6 @@ static cl_ulong getDeviceMemorySize(cl_device_id device) {
 	return mem_size;
 }
 
-static cl_ulong getAllocatedMemorySize() {
-	
-	cl_ulong allocatedMemSize = 0;
-	
-	for (int t=0; t<=2; t++) {
-		std::stringstream path;
-		path << "/sys/kernel/debug/dri/" << t << "/i915_gem_objects";
-		std::ifstream infile(path.str());
-		for( std::string line; std::getline( infile, line ); ) {
-			if ( line.find("local") != std::string::npos )  {
-				std::regex seps("[ ,:]+");
-	   			std::sregex_token_iterator rit(line.begin(), line.end(), seps, -1);
-	    		auto tokens = std::vector<std::string>(rit, std::sregex_token_iterator());
-	    		tokens.erase(std::remove_if(tokens.begin(), tokens.end(), [](std::string const& s){ return s.empty(); }), tokens.end());
-	    		cl_ulong totalMemSize, availableMemSize;
-	    		std::istringstream(tokens[2]) >> std::hex >> totalMemSize; 
-				std::istringstream(tokens[4]) >> std::hex >> availableMemSize;
-
-				allocatedMemSize += (totalMemSize - availableMemSize);
-		    }
-		}
-	}
-	return allocatedMemSize;
-}
-
 
 static cl_mem createBuffer(cl_context ctx, cl_mem_flags flags, size_t size, void *host_ptr) {
 	cl_int err;
@@ -178,11 +154,12 @@ static cl_mem createBuffer(cl_context ctx, cl_mem_flags flags, size_t size, void
 
 
 static void activity(Gauge* gauge) {
+ 	
+ 	running = true;
 
-	while(gauge->Value() != -1 ) {
-		double usedMemSize = getAllocatedMemorySize()/GB;
-		gauge->Set(usedMemSize);
-		usleep(100000);
+	while(running) {
+		usleep(500000);
+		gauge->Set(8);
 	}
 }
 
@@ -412,7 +389,6 @@ int main(int argc, char* argv[])
 
 	cl_int err;
 
-	
 	// Set up a GPU device if available, exit if not GPU
 	cl_device_id device_id;
 	err = getFirstAvailableDevice(CL_DEVICE_TYPE_GPU, device_id);
@@ -420,6 +396,9 @@ int main(int argc, char* argv[])
 		std::cout << "No GPU found. Exit\n";
 		return -1;
 	}
+
+  	
+  	std::string containerType = highPrio ? "hp":"lp";
 
   	Exposer exposer{"0.0.0.0:"+std::to_string(port)};
   	auto registry = std::make_shared<Registry>();
@@ -429,14 +408,15 @@ int main(int argc, char* argv[])
 							.Help("memory Eviction monitoring")
 							.Register(*registry);
 
-  	std::string containerType = highPrio ? "hp":"lp";
-	auto& compute_time_gauge = gauge.Add({{"label", containerType + " container: compute time (ms)"}});
-    auto& gpu_used_mem_gauge = gauge.Add({{"label", containerType + " container: used gpu memory (GB)"}});
+    auto& heartbeat_gauge = gauge.Add({{"label", containerType + " container heartbeat"}});
+
+    heartbeat_gauge.Set(8);
+
+	exposer.RegisterCollectable(registry);
+
 
 	auto totalMemSize  = getDeviceMemorySize(device_id);
-	auto allocatedMemSize = getAllocatedMemorySize();
 	auto requiredMemSize = totalMemSize * memRatio;
-	auto availableMemSize = totalMemSize - allocatedMemSize;
 	
 	size_t nbOperations =  (requiredMemSize)/(3*buffSize);
 
@@ -445,15 +425,13 @@ int main(int argc, char* argv[])
 	std::cout << "\t\t  Device Name         :\t" << getDeviceName(device_id) << std::endl;
 	std::cout << "\t\t  Total Mem. Size     :\t" << std::setprecision(2) << (float)totalMemSize/GB << " GB"<<std::endl;
 	std::cout << "\t\t  Required Mem. Size  :\t" << std::setprecision(2) << (float)requiredMemSize/GB << " GB" << std::endl;
-	std::cout << "\t\t  Available Mem. Size :\t" <<  std::setprecision(2) << (float)availableMemSize/GB << " GB"<<std::endl;
 	std::cout << "\t\t  Pid                 :\t" << getpid() << std::endl;
 
 	std::cout << "    ------------------------------------------------------------------------" << std::endl;
 	
 	printDeviceInfo(device_id);
 
-	bool running = true;
-	std::thread thr(activity, &gpu_used_mem_gauge);
+	std::thread thr(activity, &heartbeat_gauge);
     
     auto startTime = Clock::now();
     cl_context context = clCreateContext(NULL, 1, &device_id, NULL, NULL, &err);
@@ -608,10 +586,6 @@ int main(int argc, char* argv[])
 
 			auto computeTime = timeElapsed(perfStartTime);
 
-			compute_time_gauge.Set(computeTime/1000.0);
-	 		if (i==0) {
-                                 exposer.RegisterCollectable(registry);
-		   	}
 			err = clEnqueueReadBuffer(q, mat->C, CL_TRUE, 0, buffSize, outBuff, 0, NULL, NULL);
 
 			for(size_t j = 0; j < buffSize/sizeof(float); j++) 	{
@@ -645,7 +619,7 @@ int main(int argc, char* argv[])
 		}
 	}
     
-    	clFinish(q);
+    clFinish(q);
 	clReleaseCommandQueue(q);
 	clReleaseContext(context);
 
@@ -658,7 +632,6 @@ int main(int argc, char* argv[])
 	std::cout << "----------------------------------------------------------------------------" << std::endl;
 
 	running = false;
-	gpu_used_mem_gauge.Set(-1);
 	thr.join();
 
 	
