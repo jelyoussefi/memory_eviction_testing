@@ -38,7 +38,7 @@ float getGpuMemoryAllocatedSize() {
 	   			std::sregex_token_iterator rit(line.begin(), line.end(), seps, -1);
 	    		auto tokens = std::vector<std::string>(rit, std::sregex_token_iterator());
 	    		tokens.erase(std::remove_if(tokens.begin(), tokens.end(), [](std::string const& s){ return s.empty(); }), tokens.end());
-	    		double totalMemSize, availableMemSize;
+	    		unsigned long long totalMemSize, availableMemSize;
 	    		std::istringstream(tokens[2]) >> std::hex >> totalMemSize; 
 				std::istringstream(tokens[4]) >> std::hex >> availableMemSize;
 
@@ -77,7 +77,6 @@ int main() {
   	exposer.RegisterCollectable(registry);
 
 	while (true) {	
-
 		sydMem_gauche.Set( getSystemMemoryAllocatedSize() );
 
 		gpuMem_gauche.Set( getGpuMemoryAllocatedSize() );

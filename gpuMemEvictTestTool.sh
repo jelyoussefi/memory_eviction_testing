@@ -32,12 +32,12 @@ do
 	printf "\nSuspending the low priority docker container\n"
 
 	docker kill --signal="SIGUSR1" ${LP_CONTAINTER_NAME}
-
+	
 	printf "\nStarting the high priority docker container\n"
 	
 	docker run ${DOCKER_OPTS} -p 8081:8081 --name ${HP_CONTAINTER_NAME} ${IMAGE_NAME} ./hp_entry_point.sh
 	
 	printf "\nResuming the low priority docker container\n"
-
+	
 	docker kill --signal="SIGUSR2" ${LP_CONTAINTER_NAME}
 done

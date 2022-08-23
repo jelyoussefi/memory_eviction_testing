@@ -11,4 +11,7 @@ procPid=$!
 trap "kill -STOP ${procPid[@]}"  SIGUSR1
 trap "kill -CONT ${procPid[@]}"  SIGUSR2
 
-wait $procPid
+while true
+do
+	wait $procPid
+done
