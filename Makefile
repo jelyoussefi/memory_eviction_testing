@@ -15,14 +15,15 @@ HP_DURATION ?= 20
 #----------------------------------------------------------------------------------------------------------------------
 default: run 
 
-
+build:
+	@$(call msg,Building the docker images ...)	
+	@docker-compose build
+	
 run: 
 	@$(call msg,Running the gpuMemEvictTestTool application ...)
 	@docker-compose down
-	@docker-compose build
 	@docker-compose up -d prometheus grafana memory_monitoring
 	@sudo ./gpuMemEvictTestTool.sh ${LP_MEM_RATIO} ${HP_MEM_RATIO} ${HP_DURATION}
-
 
 #----------------------------------------------------------------------------------------------------------------------
 # helper functions

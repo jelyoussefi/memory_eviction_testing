@@ -6,10 +6,21 @@ then
   exit 1
 fi
 
-procPid=$!
+procPid=$1
 
-trap "kill -STOP ${procPid[@]}"  SIGUSR1
-trap "kill -CONT ${procPid[@]}"  SIGUSR2
+function suspend_handler() {
+  kill -STOP ${procPid[@]}
+  suspend_resume_prom -s
+}
+
+function resume_handler() {
+  kill -CONT ${procPid[@]}
+  suspend_resume_prom -r
+}
+
+
+trap suspend_handler  SIGUSR1
+trap resume_handler   SIGUSR2
 
 while true
 do

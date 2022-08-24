@@ -39,10 +39,18 @@ kernelCompiler: prometheus-cpp
 		$(CXX_COMPILER) $(CXXFLAGS) $@.cpp -o $@ $(LDFLAGS)'
 
 
-build: prometheus-cpp kernelCompiler gpuMemEvictTestTool 
+suspend_resume_prom: prometheus-cpp
+	@$(call msg,Building the suspend/resume prometheus client  ...)
+	@bash -c 'source ${ONEAPI_ROOT}/setvars.sh --force &> /dev/null && \
+		$(CXX_COMPILER) $(CXXFLAGS) $@.cpp -o $@ $(LDFLAGS) && \
+		cp $@ /usr/bin'
+
+
+
+build: prometheus-cpp kernelCompiler gpuMemEvictTestTool suspend_resume_prom
 
 clean:
-	@rm -rf gpuMemEvictTestTool kernelCompiler
+	@rm -rf gpuMemEvictTestTool kernelCompiler suspend_resume_prom
 
 #----------------------------------------------------------------------------------------------------------------------
 # Docker

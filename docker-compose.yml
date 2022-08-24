@@ -7,11 +7,6 @@ services:
     ports:
       - 9090:9090
 
-  pushgateway:
-    image: prom/pushgateway
-    ports:
-      - 9091:9091
-
   grafana:
     image: grafana/grafana
     volumes:
@@ -29,7 +24,7 @@ services:
     build: 
        context: ./utils/
        args:
-          BASE_IMAGE : ge/intel/sles_dpcpp_compiler_host_level_zero
+          BASE_IMAGE : ge/intel/sles_dpcpp_compiler
     image: memory_monitoring_image     
     ports:
        - 8082:8082 
@@ -40,6 +35,6 @@ services:
     build: 
        context: ./
        args:
-          BASE_IMAGE : ge/intel/sles_dpcpp_compiler_host_level_zero
+          BASE_IMAGE : ge/intel/sles_dpcpp_compiler
     image: suspend_resume_image     
   
