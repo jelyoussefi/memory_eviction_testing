@@ -10,7 +10,7 @@ export TERM=xterm
 
 CXX_COMPILER=g++
 CXXFLAGS=-g -Wno-c++20-extensions -Wno-deprecated-declarations -Wno-return-type 
-LDFLAGS=-lOpenCL -lpthread -lstdc++fs -lprometheus-cpp-core -lprometheus-cpp-pull
+LDFLAGS=-lOpenCL -lpthread -lstdc++fs -lprometheus-cpp-core -lprometheus-cpp-pull -lprometheus-cpp-push
 
 
 export LD_LIBRARY_PATH:=/usr/local/lib:${LD_LIBRARY_PATH}
@@ -25,7 +25,7 @@ prometheus-cpp:
 	@cd /tmp && rm -rf prometheus-cpp && git clone https://github.com/jupp0r/prometheus-cpp && \
 		cd prometheus-cpp && git submodule init && git submodule update && \
 		mkdir build && cd build && CXX=g++ \
-		cmake .. -DBUILD_SHARED_LIBS=ON -DENABLE_PUSH=OFF -DENABLE_COMPRESSION=OFF .. && \
+		cmake .. -DBUILD_SHARED_LIBS=ON -DENABLE_PUSH=ON -DENABLE_COMPRESSION=OFF .. && \
 		make && sudo make install
 
 gpuMemEvictTestTool:
@@ -39,7 +39,7 @@ kernelCompiler: prometheus-cpp
 		$(CXX_COMPILER) $(CXXFLAGS) $@.cpp -o $@ $(LDFLAGS)'
 
 
-suspend_resume_prom: prometheus-cpp
+suspend_resume_prom: 
 	@$(call msg,Building the suspend/resume prometheus client  ...)
 	@bash -c 'source ${ONEAPI_ROOT}/setvars.sh --force &> /dev/null && \
 		$(CXX_COMPILER) $(CXXFLAGS) $@.cpp -o $@ $(LDFLAGS) && \

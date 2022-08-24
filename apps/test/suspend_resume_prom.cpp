@@ -15,8 +15,8 @@
 #include <regex>
 
 #include <prometheus/counter.h>
-#include <prometheus/exposer.h>
 #include <prometheus/registry.h>
+#include "prometheus/gateway.h"
 
 using namespace prometheus;
 
@@ -27,7 +27,7 @@ int main(int argc, char* argv[]) {
 		exit(0);
 	}
 
-	Exposer exposer{"0.0.0.0:8083"};
+  	Gateway gateway{"172.17.0.1", "9091", "prometheus"};
 
   	auto registry = std::make_shared<Registry>();
 
@@ -39,6 +39,8 @@ int main(int argc, char* argv[]) {
 	auto& suspend_gauche = gauge.Add({{"label", "suspend"}});
 	auto& resume_gauche = gauge.Add({{"label", "resume)"}});
 
+  	gateway.RegisterCollectable(registry);
+
 	if (!strcmp(argv[1], "-s")) {
 		suspend_gauche.Set(16);
 	}
@@ -49,8 +51,8 @@ int main(int argc, char* argv[]) {
 		printf("Usage : %s -s | -r ", argv[0]);
 		exit(0);
 	}
-	
-  	exposer.RegisterCollectable(registry);
+
+	gateway.Push();
 
 	return 0;
 
