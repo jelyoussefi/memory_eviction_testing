@@ -12,8 +12,8 @@ CXX_COMPILER=dpcpp
 CXXFLAGS=-g -Wno-c++20-extensions -Wno-deprecated-declarations -Wno-return-type
 LDFLAGS=-lOpenCL -lpthread
 
-LP_MEM_RATIO ?= 0.5
-HP_MEM_RATIO ?= 0.8
+LP_MEM_RATIO ?= 1.0
+HP_MEM_RATIO ?= 0.1
 
  
 #----------------------------------------------------------------------------------------------------------------------
@@ -33,9 +33,8 @@ kernelCompiler:
 	@bash -c 'source ${ONEAPI_ROOT}/setvars.sh --force &> /dev/null && \
 		$(CXX_COMPILER) $(CXXFLAGS) $@.cpp -o $@ $(LDFLAGS)'
 
-build: kernelCompiler gpuMemEvictTestTool
 
-run: gpuMemEvictTestTool
+run: kernelCompiler gpuMemEvictTestTool
 	@$(call msg,Running the gpuMemEvictTestTool application ...)
 	@mkdir -p ./output/
 	@sudo bash -c 'source ${ONEAPI_ROOT}/setvars.sh --force &> /dev/null && \

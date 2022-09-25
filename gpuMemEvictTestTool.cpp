@@ -456,6 +456,7 @@ int main(int argc, char* argv[])
 	std::cout << "\t\t  Total Mem. Size     :\t" << std::setprecision(2) << (float)totalMemSize/GB << " GB"<<std::endl;
 	std::cout << "\t\t  Required Mem. Size  :\t" << std::setprecision(2) << (float)requiredMemSize/GB << " GB" << std::endl;
 	std::cout << "\t\t  Available Mem. Size :\t" <<  std::setprecision(2) << (float)availableMemSize/GB << " GB"<<std::endl;
+	std::cout << "\t\t  Block Size 	  :\t" <<  std::fixed << std::setprecision(1) << (float)buffSize/MB << " MB"<<std::endl;
 	std::cout << "\t\t  Pid                 :\t" << getpid() << std::endl;
 
 	std::cout << "    ------------------------------------------------------------------------" << std::endl;
