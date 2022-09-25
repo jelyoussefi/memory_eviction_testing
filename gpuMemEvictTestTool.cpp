@@ -65,7 +65,7 @@ using Clock = std::chrono::high_resolution_clock;
 	t_start##suffix = time_now();
 
 
-#define PRIO_TO_NAME()   ( highPrio ? RED : GREEN ) << ( highPrio ? "High Priority " : "Low Priority ") << RESET
+#define PRIO_TO_NAME()   ( highPrio ? BLUE : GREEN ) << ( highPrio ? "High Priority " : "Low Priority ") << RESET
 
 //----------------------------------------------------------------------------------------------------------------------
 // Typedefs
