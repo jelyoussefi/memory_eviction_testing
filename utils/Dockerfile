@@ -1,7 +1,7 @@
 ARG BASE_IMAGE
 FROM $BASE_IMAGE
 
-RUN zypper --non-interactive install sudo opencl-headers
+RUN zypper --non-interactive install opencl-headers
 
 ENV LD_LIBRARY_PATH="/usr/local/lib64/:${LD_LIBRARY_PATH}" 
 

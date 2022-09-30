@@ -7,13 +7,15 @@ ENV LD_LIBRARY_PATH="/usr/local/lib64/:${LD_LIBRARY_PATH}"
 
 RUN mkdir -p /workspace
 
-COPY . /workspace
+COPY ./apps/test /workspace
+
+COPY ./suspend_resume_manager.sh ./lp_entry_point.sh /usr/bin/
 
 WORKDIR /workspace
 
-RUN make -C ./apps/test build
+RUN make  build
 
-RUN mv ./suspend_resume_manager.sh /usr/bin/
+
 
 
 

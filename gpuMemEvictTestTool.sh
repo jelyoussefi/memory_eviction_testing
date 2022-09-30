@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 CURRENT_DIR=`pwd`
 
-IMAGE_NAME=suspend_resume_image
+LP_IMAGE_NAME=suspend_resume_image
+HP_IMAGE_NAME=mammo_poc_testing
 LP_CONTAINTER_NAME=suspend_resume_lp
 HP_CONTAINTER_NAME=suspend_resume_hp
 
@@ -10,7 +11,7 @@ HP_MEM_RATIO=$2
 HP_DURATION=$3
 
 DOCKER_OPTS="--rm  -v ${CURRENT_DIR}/output:/workspace/output --privileged \
-		-v /dev:/dev -v /sys/kernel/debug/:/sys/kernel/debug \
+		-v /dev:/dev -v /sys/kernel/debug/:/sys/kernel/debug -v /sys/kernel/tracing:/sys/kernel/tracing \
 		-v ${CURRENT_DIR}/cl_cache:/workspace/apps/test/cl_cache \
 		-a stdout -a stderr \
 		--env LP_MEM_RATIO=${LP_MEM_RATIO} --env HP_MEM_RATIO=${HP_MEM_RATIO} --env HP_DURATION=${HP_DURATION} "
@@ -23,7 +24,7 @@ docker rm -f ${LP_CONTAINTER_NAME} ${HP_CONTAINTER_NAME} 2> /dev/null
 
 printf  "\nStarting the low priority docker container\n"
 
-docker run ${DOCKER_OPTS} -p 8080:8080 --name ${LP_CONTAINTER_NAME} ${IMAGE_NAME} ./lp_entry_point.sh &
+docker run ${DOCKER_OPTS} -p 8080:8080 --name ${LP_CONTAINTER_NAME} ${LP_IMAGE_NAME} /usr/bin/lp_entry_point.sh &
 
 while true
 do 

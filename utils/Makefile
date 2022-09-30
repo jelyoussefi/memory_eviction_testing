@@ -30,7 +30,7 @@ prometheus-cpp:
 		cd prometheus-cpp && git submodule init && git submodule update && \
 		mkdir build && cd build && CXX=g++ \
 		cmake .. -DBUILD_SHARED_LIBS=ON -DENABLE_PUSH=OFF -DENABLE_COMPRESSION=OFF .. && \
-		make && sudo make install
+		make &&  make install
 
 memMonitor: 
 	@$(call msg,Building the  memory monitoring application   ...)

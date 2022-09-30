@@ -37,15 +37,15 @@ int main(int argc, char* argv[]) {
 							.Register(*registry);
 
 	auto& suspend_gauche = gauge.Add({{"label", "suspend"}});
-	auto& resume_gauche = gauge.Add({{"label", "resume)"}});
+	auto& resume_gauche = gauge.Add({{"label", "resume"}});
 
   	gateway.RegisterCollectable(registry);
 
 	if (!strcmp(argv[1], "-s")) {
-		suspend_gauche.Set(16);
+		suspend_gauche.Set(22);
 	}
 	else if (!strcmp(argv[1], "-r")) {
-		resume_gauche.Set(16);
+		resume_gauche.Set(22);
 	}
 	else {
 		printf("Usage : %s -s | -r ", argv[0]);
@@ -53,7 +53,9 @@ int main(int argc, char* argv[]) {
 	}
 
 	gateway.Push();
-
+	usleep(1000000);
+	gateway.Delete();
+	
 	return 0;
 
 }

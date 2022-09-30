@@ -18,7 +18,7 @@ export LD_LIBRARY_PATH:=/usr/local/lib:${LD_LIBRARY_PATH}
 # Targets
 #----------------------------------------------------------------------------------------------------------------------
 default: build 
-.PHONY: prometheus-cpp gpuMemEvictTestTool kernelCompiler
+.PHONY: prometheus-cpp gpuMemEvictTestTool kernelCompiler oneAPIMemTest
 
 prometheus-cpp:
 	@$(call msg,Building  prometheus-cpp ...)
@@ -38,6 +38,11 @@ kernelCompiler: prometheus-cpp
 	@bash -c 'source ${ONEAPI_ROOT}/setvars.sh --force &> /dev/null && \
 		$(CXX_COMPILER) $(CXXFLAGS) $@.cpp -o $@ $(LDFLAGS)'
 
+oneAPIMemTest: 
+	@$(call msg,Building oneAPIMemTest   ...)
+	@bash -c 'source ${ONEAPI_ROOT}/setvars.sh --force &> /dev/null && \
+		dpcpp -fsycl -O3  $@.cpp -o $@ '
+
 
 suspend_resume_prom: 
 	@$(call msg,Building the suspend/resume prometheus client  ...)
@@ -46,8 +51,7 @@ suspend_resume_prom:
 		cp $@ /usr/bin'
 
 
-
-build: prometheus-cpp kernelCompiler gpuMemEvictTestTool suspend_resume_prom
+build: prometheus-cpp kernelCompiler gpuMemEvictTestTool suspend_resume_prom oneAPIMemTest
 
 clean:
 	@rm -rf gpuMemEvictTestTool kernelCompiler suspend_resume_prom

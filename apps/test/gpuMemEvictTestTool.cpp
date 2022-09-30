@@ -159,7 +159,7 @@ static void activity(Gauge* gauge) {
 
 	while(running) {
 		usleep(500000);
-		gauge->Set(8);
+		gauge->Set(20);
 	}
 }
 
@@ -410,7 +410,7 @@ int main(int argc, char* argv[])
 
     auto& heartbeat_gauge = gauge.Add({{"label", containerType + " container heartbeat"}});
 
-    heartbeat_gauge.Set(8);
+    heartbeat_gauge.Set(20);
 
 	exposer.RegisterCollectable(registry);
 
