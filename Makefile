@@ -12,15 +12,15 @@ CXX_COMPILER=dpcpp
 CXXFLAGS=-g -Wno-c++20-extensions -Wno-deprecated-declarations -Wno-return-type
 LDFLAGS=-lOpenCL -lpthread
 
-LP_MEM_RATIO ?= 0.5
-HP_MEM_RATIO ?= 0.8
+LP_MEM_RATIO ?= 0.9
+HP_MEM_RATIO ?= 0.2
 
  
 #----------------------------------------------------------------------------------------------------------------------
 # Targets
 #----------------------------------------------------------------------------------------------------------------------
 default: run 
-.PHONY: gpuMemEvictTestTool kernelCompiler
+.PHONY: gpuMemEvictTestTool kernelCompiler oneAPIMemTest openclMemTest
 
 	
 gpuMemEvictTestTool:
@@ -33,9 +33,19 @@ kernelCompiler:
 	@bash -c 'source ${ONEAPI_ROOT}/setvars.sh --force &> /dev/null && \
 		$(CXX_COMPILER) $(CXXFLAGS) $@.cpp -o $@ $(LDFLAGS)'
 
+oneAPIMemTest: 
+	@$(call msg,Building oneAPIMemTest   ...)
+	@bash -c 'source ${ONEAPI_ROOT}/setvars.sh --force &> /dev/null && \
+		$(CXX_COMPILER) $(CXXFLAGS) -fsycl -O3  $@.cpp -o $@ '
+
+openclMemTest: 
+	@$(call msg,Building openclMemTest   ...)
+	@bash -c 'source ${ONEAPI_ROOT}/setvars.sh --force &> /dev/null && \
+		g++ $(CXXFLAGS)  -O3  $@.cpp -o $@ $(LDFLAGS)'
+		
 build: kernelCompiler gpuMemEvictTestTool
 
-run: gpuMemEvictTestTool
+run: 
 	@$(call msg,Running the gpuMemEvictTestTool application ...)
 	@mkdir -p ./output/
 	@sudo bash -c 'source ${ONEAPI_ROOT}/setvars.sh --force &> /dev/null && \
