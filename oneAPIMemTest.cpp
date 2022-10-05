@@ -128,7 +128,7 @@ bool process(device& d, queue& q, uint64_t globalSize, uint64_t allocSize, bool 
     std::cout << "\tCreating Buffers ..." << std::endl;
     createBuffs(q, globalSize, allocSize, bufVec, rangeBuffers);
     std::cout << "\tStarting the application ..." << std::endl;
-    uint32_t delay = 0;
+    uint32_t delay = 50;
     uint32_t i = 0;
     auto startTime = Time::now();
     while( true ) {

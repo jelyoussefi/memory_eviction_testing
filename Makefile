@@ -12,8 +12,8 @@ CXX_COMPILER=dpcpp
 CXXFLAGS=-g -Wno-c++20-extensions -Wno-deprecated-declarations -Wno-return-type
 LDFLAGS=-lOpenCL -lpthread
 
-LP_MEM_RATIO ?= 0.9
-HP_MEM_RATIO ?= 0.2
+LP_MEM_RATIO ?= 0.8
+HP_MEM_RATIO ?= 0.8
 
  
 #----------------------------------------------------------------------------------------------------------------------

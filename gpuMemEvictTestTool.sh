@@ -4,6 +4,8 @@
 
 #./gpuMemEvictTestTool -m $1 -t 15 &
 ./oneAPIMemTest & 
+#./openclMemTest&
+
 lwpPid=$!
 
 trap "kill ${lwpPid[@]}" SIGINT

@@ -145,7 +145,10 @@ memInit(cl_command_queue q, cl_kernel kernel,
 		}
 
 		clReleaseEvent(evt);
-
+	if ( delay > 0 ) {
+				usleep(delay*1000);
+			}
+	
 	}
 
 
@@ -173,6 +176,11 @@ memRead(cl_command_queue q, cl_kernel kernel,
 		}
 
 		clReleaseEvent(evt);
+		 if ( delay > 0 ) {
+                                usleep(delay*1000);
+                        }
+
+
 	}
 	
     return status;
@@ -231,7 +239,7 @@ bool process(cl_context context, cl_command_queue q, cl_kernel initMem_kernel, c
 	}
     std::cout << "\tStarting the application ..." << std::endl;
 
-    uint32_t delay = 0;
+    uint32_t delay = 30;
     uint32_t i = 0;
     auto startTime = Time::now();
     while( true ) {
