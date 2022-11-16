@@ -20,7 +20,7 @@ HP_MEM_RATIO ?= 0.8
 # Targets
 #----------------------------------------------------------------------------------------------------------------------
 default: run 
-.PHONY: gpuMemEvictTestTool kernelCompiler
+.PHONY: gpuMemEvictTestTool kernelCompiler oneAPIMemTest
 
 	
 gpuMemEvictTestTool:
@@ -33,7 +33,13 @@ kernelCompiler:
 	@bash -c 'source ${ONEAPI_ROOT}/setvars.sh --force &> /dev/null && \
 		$(CXX_COMPILER) $(CXXFLAGS) $@.cpp -o $@ $(LDFLAGS)'
 
-build: kernelCompiler gpuMemEvictTestTool
+oneAPIMemTest:
+	@$(call msg,Building the oneAPI tests   ...)
+	@bash -c 'source ${ONEAPI_ROOT}/setvars.sh --force &> /dev/null && \
+		$(CXX_COMPILER) $(CXXFLAGS) $@.cpp -o $@ $(LDFLAGS)'
+
+
+build: kernelCompiler gpuMemEvictTestTool oneAPIMemTest
 
 run: gpuMemEvictTestTool
 	@$(call msg,Running the gpuMemEvictTestTool application ...)
@@ -44,7 +50,7 @@ run: gpuMemEvictTestTool
 show:
 	@python3  plot.py
 clean:
-	@rm -rf gpuMemEvictTestTool kernelCompiler
+	@rm -rf gpuMemEvictTestTool kernelCompiler oneAPIMemTest
 
 #----------------------------------------------------------------------------------------------------------------------
 # helper functions
