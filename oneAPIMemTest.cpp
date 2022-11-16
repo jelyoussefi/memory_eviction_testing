@@ -143,7 +143,7 @@ createBuffs(queue &q, uint64_t globalSize, uint64_t allocSize,
 }
 
 static bool 
-process(queue& q, uint64_t globalSize, uint64_t allocSize, bool random, bool verbose = true) {
+process(queue& q, uint64_t globalSize, uint64_t allocSize, bool random, uint32_t duration, bool verbose = true) {
     
     std::vector <uint32_t*> bufVec;
     std::vector <uint32_t> rangeBuffers;
@@ -159,7 +159,7 @@ process(queue& q, uint64_t globalSize, uint64_t allocSize, bool random, bool ver
 
    
 
-    while( true ) {
+    while( duration==0 || (timeElapsed(startTime)/1000 < duration ) ) {
 
     	std::vector<uint32_t> indexes((3*bufVec.size())/4);
 
@@ -190,11 +190,11 @@ process(queue& q, uint64_t globalSize, uint64_t allocSize, bool random, bool ver
   
     q.wait();
     
-    std::cout << "Freeing memory" << std::endl;
     for (int i=0; i<bufVec.size(); i++ ) {
 	    sycl::free(bufVec[i], q);
     }
    
+   	printf("\tend\n");
     return true;
 
 }
@@ -208,19 +208,24 @@ int main(int argc, char* argv[]) {
 	bool random = false;
 	float memRatio = 1.0;
 	uint64_t memBlokSize = 2048;
+	uint32_t duration = 0;
 	int c;
-	while ((c = getopt (argc, argv, "m:b:r")) != -1)
+	while ((c = getopt (argc, argv, "m:b:t:r")) != -1)
     switch (c)
       {
       case 'm':
         memRatio = std::stof(optarg);
         break;
       case 'b':
-        memBlokSize = std::stof(optarg);
+        memBlokSize = std::stoi(optarg);
         break;
       case 'r':
         random = true;
         break;
+      case 't':
+        duration = std::stoi(optarg);
+        break;
+
       case 'h':
       	printUsage(argv[0]);
         return 0;
@@ -252,7 +257,7 @@ int main(int argc, char* argv[]) {
     std::cout <<"\t"<<"\tRequired mem size   :\t"<< std::fixed<<std::setprecision(2) << GREEN << (float)memRequiredSize/GB <<" Bb" << RESET << std::endl;
     std::cout <<"\t"<<"\tAlloc block size    :\t"   << std::fixed<<std::setprecision(2) <<  GREEN << (float)memBlokSize << " Mb"<< RESET << std::endl;
     std::cout << "---------------------------------------------------------------------------------" << std::endl;
-    process(q, memRequiredSize, memBlokSize*MB, random, true);
+    process(q, memRequiredSize, memBlokSize*MB, random, duration, true);
 
 
     return 0;
