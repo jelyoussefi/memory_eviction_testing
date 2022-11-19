@@ -20,9 +20,11 @@ using namespace sycl;
 #define GB (1024*1024*1024)
 
 #define MBDIFF 25000000
-#define RED   "\033[1;31m"
-#define GREEN   "\033[1;32m"
-#define RESET   "\033[0m"
+#define RED   	"\x1B[1;31m"
+#define GREEN   "\x1B[1;32m"
+#define YELLOW  "\x1B[1;33m"
+#define BLUE   	"\x1B[1;34m"
+#define RESET   "\x1B[0m"
 #define CUDA_ENABLED std::getenv("CUDA_ENABLED") ? (strcmp("ON", std::getenv("CUDA_ENABLED"))==0) : false
 
 using namespace std::chrono;
@@ -45,6 +47,14 @@ static float timeElapsed(Time::time_point t_start) {
 	Time::time_point t_stop = Time::now();
 	std::chrono::duration<double, std::milli> diff = duration_cast<std::chrono::duration<double>>(t_stop - t_start);
 	return diff.count();
+}
+
+static const char* color(int id) {
+	static const char* colors[] = {GREEN, RED, BLUE, YELLOW};
+	if ( id < 0 || id >= sizeof(colors)/sizeof(char*) ) {
+		id = 0;
+	}
+	return colors[id];
 }
 
 //----------------------------------------------------------------------------------------------------------------------------
@@ -143,7 +153,7 @@ createBuffs(queue &q, uint64_t globalSize, uint64_t allocSize,
 }
 
 static bool 
-process(queue& q, uint64_t globalSize, uint64_t allocSize, bool random, uint32_t duration, bool verbose = true) {
+process(queue& q, uint64_t globalSize, uint64_t allocSize, bool random, uint32_t duration, uint32_t id=0, bool verbose = true) {
     
     std::vector <uint32_t*> bufVec;
     std::vector <uint32_t> rangeBuffers;
@@ -170,7 +180,7 @@ process(queue& q, uint64_t globalSize, uint64_t allocSize, bool random, uint32_t
 		}	
 		
     	if ( i%16==0 ) {
-    		std::cout << GREEN << "\t\t Loop:\t"<< i << RESET << std::endl;
+    		std::cout << color(id) << "\t\t Loop:\t"<< i << RESET << std::endl;
     	}
     	
 		bool res = memInit(q, bufVec, rangeBuffers, indexes, i, delay);
@@ -209,31 +219,35 @@ int main(int argc, char* argv[]) {
 	float memRatio = 1.0;
 	uint64_t memBlokSize = 2048;
 	uint32_t duration = 0;
-	int c;
-	while ((c = getopt (argc, argv, "m:b:t:r")) != -1)
-    switch (c)
-      {
-      case 'm':
-        memRatio = std::stof(optarg);
-        break;
-      case 'b':
-        memBlokSize = std::stoi(optarg);
-        break;
-      case 'r':
-        random = true;
-        break;
-      case 't':
-        duration = std::stoi(optarg);
-        break;
+	uint32_t id = 0;
 
-      case 'h':
-      	printUsage(argv[0]);
-        return 0;
-       
-      default:
-        printUsage(argv[0]);
-        return -1;
-      }
+	int c;
+	while ((c = getopt (argc, argv, "m:b:t:i:r")) != -1)
+    switch (c)
+	{
+	case 'm':
+			memRatio = std::stof(optarg);
+			break;
+		case 'b':
+			memBlokSize = std::stoi(optarg);
+			break;
+		case 'r':
+			random = true;
+			break;
+		case 't':
+			duration = std::stoi(optarg);
+			break;
+		case 'i':
+			id = std::stoi(optarg);
+			break;
+		case 'h':
+			printUsage(argv[0]);
+		return 0;
+
+		default:
+		printUsage(argv[0]);
+		return -1;
+	}
 
 
 	device d;
@@ -252,12 +266,13 @@ int main(int argc, char* argv[]) {
     uint64_t memRequiredSize = memGlobalSize*memRatio;
 
     std::cout << "\n---------------------------------------------------------------------------------" << std::endl;
-    std::cout <<"\t"<<"Device :\t"<< RED <<d.get_info<sycl::info::device::name>() << RESET << std::endl;
-    std::cout <<"\t"<<"\tGlobal mem size     :\t"   << std::fixed<<std::setprecision(2) <<  GREEN << (float)memGlobalSize/GB << " Gb"<< RESET << std::endl;
-    std::cout <<"\t"<<"\tRequired mem size   :\t"<< std::fixed<<std::setprecision(2) << GREEN << (float)memRequiredSize/GB <<" Bb" << RESET << std::endl;
-    std::cout <<"\t"<<"\tAlloc block size    :\t"   << std::fixed<<std::setprecision(2) <<  GREEN << (float)memBlokSize << " Mb"<< RESET << std::endl;
+    std::cout <<"\t"<<"Device :\t"<< color(id) <<d.get_info<sycl::info::device::name>() << RESET << std::endl;
+    std::cout <<"\t"<<"\tGlobal mem size     :\t"   << std::fixed<<std::setprecision(2) <<  color(id) << (float)memGlobalSize/GB << " Gb"<< RESET << std::endl;
+    std::cout <<"\t"<<"\tRequired mem size   :\t"<< std::fixed<<std::setprecision(2) << color(id) << (float)memRequiredSize/GB <<" Bb" << RESET << std::endl;
+    std::cout <<"\t"<<"\tAlloc block size    :\t"   << std::fixed<<std::setprecision(2) <<  color(id) << (float)memBlokSize << " Mb"<< RESET << std::endl;
+    std::cout <<"\t"<<"\tProcess Id          :\t"   <<  color(id) << getpid() << RESET << std::endl;
     std::cout << "---------------------------------------------------------------------------------" << std::endl;
-    process(q, memRequiredSize, memBlokSize*MB, random, duration, true);
+    process(q, memRequiredSize, memBlokSize*MB, random, duration, id, true);
 
 
     return 0;
