@@ -183,7 +183,7 @@ process(queue& q, uint64_t globalSize, uint64_t allocSize, bool random, uint32_t
 
 		}	
 		
-    	if ( i%16==0 ) {
+    	if ( i && i%16==0 ) {
     		float average = std::accumulate(times.begin(), times.end(), 0.0) / times.size();
     		std::cout << color(id) << "\t\t Loop:\t"<< i << std::fixed<<std::setprecision(2)<<" ( "<< average << " s )"<<RESET << std::endl;
     	}
