@@ -162,11 +162,11 @@ process(queue& q, uint64_t globalSize, uint64_t allocSize, bool random, uint32_t
     uint32_t i = 0;
     std::vector<float> times;
 
-    std::cout << "\tCreating Buffers ..." << std::endl;
+    std::cout << color(id) <<  "\tCreating Buffers ..." << RESET << std::endl;
     
     createBuffs(q, globalSize, allocSize, bufVec, rangeBuffers);
    
-    std::cout << "\tStarting loops" << std::endl;
+    std::cout << color(id) << "\tStarting loops" << RESET << std::endl;
 
     auto startTime = Time::now();
 
@@ -210,7 +210,7 @@ process(queue& q, uint64_t globalSize, uint64_t allocSize, bool random, uint32_t
 	    sycl::free(bufVec[i], q);
     }
    
-   	printf("\tend\n");
+    std::cout << color(id) << "\tEnd" << RESET << std::endl;
     return true;
 
 }
