@@ -9,6 +9,7 @@
 #include <ctime>
 #include <sys/time.h>
 #include <algorithm>
+#include <numeric>
 
 //----------------------------------------------------------------------------------------------------------------------------
 
@@ -159,7 +160,7 @@ process(queue& q, uint64_t globalSize, uint64_t allocSize, bool random, uint32_t
     std::vector <uint32_t> rangeBuffers;
  	uint32_t delay = 0;
     uint32_t i = 0;
-    auto startTime = Time::now();
+    std::vector<float> times;
 
     std::cout << "\tCreating Buffers ..." << std::endl;
     
@@ -167,9 +168,12 @@ process(queue& q, uint64_t globalSize, uint64_t allocSize, bool random, uint32_t
    
     std::cout << "\tStarting loops" << std::endl;
 
-   
+    auto startTime = Time::now();
+
 
     while( duration==0 || (timeElapsed(startTime)/1000 < duration ) ) {
+
+    	auto startLoopTime = Time::now();
 
     	std::vector<uint32_t> indexes((3*bufVec.size())/4);
 
@@ -180,7 +184,8 @@ process(queue& q, uint64_t globalSize, uint64_t allocSize, bool random, uint32_t
 		}	
 		
     	if ( i%16==0 ) {
-    		std::cout << color(id) << "\t\t Loop:\t"<< i << RESET << std::endl;
+    		float average = std::accumulate(times.begin(), times.end(), 0.0) / times.size();
+    		std::cout << color(id) << "\t\t Loop:\t"<< i << std::fixed<<std::setprecision(2)<<" ( "<< average << " s )"<<RESET << std::endl;
     	}
     	
 		bool res = memInit(q, bufVec, rangeBuffers, indexes, i, delay);
@@ -195,6 +200,7 @@ process(queue& q, uint64_t globalSize, uint64_t allocSize, bool random, uint32_t
 			std::cout << RED << "\tMemory Read failed" << RESET << std::endl;
 	     		return false;
 		}
+		times.push_back(timeElapsed(startLoopTime));
 		i++;
     }
   
