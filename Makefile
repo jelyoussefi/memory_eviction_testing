@@ -19,7 +19,7 @@ HP_MEM_RATIO ?= 0.1
 #----------------------------------------------------------------------------------------------------------------------
 # Targets
 #----------------------------------------------------------------------------------------------------------------------
-default: oneAPIMemTest 
+default: run 
 .PHONY: gpuMemEvictTestTool kernelCompiler oneAPIMemTest
 
 	
@@ -41,7 +41,7 @@ oneAPIMemTest:
 
 build: kernelCompiler gpuMemEvictTestTool oneAPIMemTest
 
-run: kernelCompiler gpuMemEvictTestTool
+run: build 
 	@$(call msg,Running the gpuMemEvictTestTool application ...)
 	@mkdir -p ./output/
 	@sudo bash -c 'source ${ONEAPI_ROOT}/setvars.sh --force &> /dev/null && \
